@@ -68,7 +68,7 @@ def load_and_process_data(file):
 # ==========================================
 # 🧱 左右分割レイアウトの作成
 # ==========================================
-left_col, right_col = st.columns([1, 2])
+left_col, right_col = st.columns([1, 3])
 
 # グローバルでデータを保持する変数の初期化
 processed_df = None
@@ -104,10 +104,10 @@ with left_col:
 # 👉 右画面：メイン表示エリア（グラフ ＆ テーブルを配置し、独立スクロール）
 # ------------------------------------------
 
-# タイトルエリア
-st.markdown("<h1 style='text-align: center;'>🤖 営業データ分析システム 🤖</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>実績データを読み込み、自動で整形・可視化を行います</p>", unsafe_allow_html=True) 
-st.divider()
+with right:
+    st.markdown("<h1 style='text-align: center;'>🤖 営業データ分析システム 🤖</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray;'>実績データを読み込み、自動で整形・可視化を行います</p>", unsafe_allow_html=True)
+    st.divider()
 
 with right_col:
     if uploaded_file:
