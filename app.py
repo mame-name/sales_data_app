@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as stimport streamlit as st
 import pandas as pd
 import plotly.express as px
 
@@ -97,48 +97,60 @@ with right_col:
             target_column = '請求先名' 
             
             if target_column in processed_df.columns:
-                # 請求先名ごとの件数を集計
+                # 元のユニークな請求先数をカウント（真ん中の文字用）
+                original_unique_count = processed_df[target_column].nunique()
+                
+                # 請求先名ごとの件数を集計して多い順にソート
                 df_pie = processed_df[target_column].value_counts().reset_index()
                 df_pie.columns = [target_column, '件数']
-                
-                # データを件数の多い順に明示的に並び替え
                 df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
-                # 割合（％）を計算して凡例用のラベルを作成
+                # 【新規修正】上位15社とそれ以外（その他）をグルーピングするロジック
+                top_n = 15
+                if len(df_pie) > top_n:
+                    # 1～15位のデータ
+                    df_top = df_pie.head(top_n).copy()
+                    # 16位以降のデータを合計して「その他」の行を作る
+                    other_count = df_pie.iloc[top_n:]['件数'].sum()
+                    df_other = pd.DataFrame([{target_column: 'その他', '件数': other_count}])
+                    # 合体させる
+                    df_pie = pd.concat([df_top, df_other], ignore_index=True)
+                
+                # 割合（％）を再計算して凡例用のラベルを作成
                 total_count = df_pie['件数'].sum()
                 df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
                 df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
-                # 【修正】タイトルを独立した行としてStreamlit側で表示（文字被り防止）
-                st.markdown("#### 📊 請求先名毎のデータ構成比（12時スタート・大きい順）")
+                # タイトルを独立して表示
+                st.markdown(f"#### 📊 請求先名毎のデータ構成比（上位{top_n}社＋その他）")
                 
-                # Plotlyで円グラフを作成（title引数は空に設定）
+                # Plotlyで円グラフを作成
                 fig = px.pie(
                     df_pie, 
                     names='凡例表示名', 
                     values='件数', 
                     title='',
-                    hole=0.4 # 真ん中の空洞を少し広げて文字を入りやすく
+                    hole=0.4
                 )
                 
                 # 【修正】
-                # - textinfo='none' でグラフ内の数字や引き出し線を完全に非表示にしてスッキリ化
-                # - 真ん中の空洞部分に総請求先数を表示
+                # - textinfo='percent' に戻して、グラフの中に％を自動表示
+                # - ただし、外側に飛び出す細い引き出し線（重なり原因）をオフにするため automargin 等を調整
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
                     rotation=0,
-                    textinfo='none',
-                    hoverinfo='label+value+percent', # マウスを乗せた時は詳細が出るように
-                    insidetextorientation='radial'
+                    textinfo='percent',            # グラフの内側に％数字を表示
+                    textposition='inside',          # 数字は必ず円の内側に入れる（外に引き出さない）
+                    hoverinfo='label+value+percent' # マウス乗せ時は詳細表示
                 )
                 
-                # グラフのレイアウト調整と真ん中の文字配置
-                unique_clients = len(df_pie)
+                # グラフのレイアウト調整（文字が内側に入りきらない場合の非表示設定など）
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
                     height=450,
-                    annotations=[dict(text=f'請求先数<br><b>{unique_clients}件</b>', x=0.5, y=0.5, font_size=16, showarrow=False)]
+                    showlegend=True,
+                    annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=15, showarrow=False)]
                 )
                 
                 # 画面に描画
