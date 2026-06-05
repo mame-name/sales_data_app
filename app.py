@@ -146,26 +146,27 @@ with right_col:
                     hole=0.4
                 )
                 
-                # 【修正】文字サイズを一律「14px」に変更し、自動縮小されないよう完全固定
-                font_size = 14  # ← もしもっと大きくしたければ、ここを 15 や 16 に変更してください
+                # 【修正】
+                # - textinfo='percent' に戻し、グラフ内は割合（％）のみを表示
+                # - texttemplate で小数点第1位までの％表記（例：25.3%）に整形
+                font_size = 14
                 
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
                     rotation=0,
-                    textinfo='label+percent',
-                    texttemplate='%{customdata[0]}<br>%{percent:.1%}',
-                    customdata=df_pie[[target_column]].values,
+                    textinfo='percent',
+                    texttemplate='%{percent:.1%}', 
                     textposition='inside',
                     insidetextorientation='horizontal',
-                    textfont=dict(size=font_size),       # 14px一律に指定
-                    insidetextfont=dict(size=font_size), # 自動縮小を上書きして14pxをキープ
+                    textfont=dict(size=font_size),       
+                    insidetextfont=dict(size=font_size), 
                     hoverinfo='label+value+percent'
                 )
                 
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
-                    height=550, # 文字が大きくなった分、グラフ全体の高さを少し広げて見やすく調整
+                    height=500, 
                     showlegend=True,
                     annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
                 )
