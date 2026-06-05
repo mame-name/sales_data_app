@@ -68,7 +68,7 @@ def load_and_process_data(file):
 # ==========================================
 # 🧱 左右分割レイアウトの作成
 # ==========================================
-left_col, right_col = st.columns([1, 3])
+left_col, right_col = st.columns([1, 5])
 
 # グローバルでデータを保持する変数の初期化
 processed_df = None
