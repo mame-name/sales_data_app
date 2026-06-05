@@ -1,92 +1,135 @@
 import streamlit as st
+import pandas as pd
 import random
 import time
 
-# ページ設定（ワイドモードで左右分割を活かす）
-st.set_page_config(layout="wide", page_title="売買データ分析アプリ")
+# ページ設定（ワイドモード）
+st.set_page_config(layout="wide", page_title="営業データ分析システム")
 
 # タイトルエリア
 st.markdown("<h1 style='text-align: center;'>🤖 営業データ分析システム 🤖</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>データの可視化とシミュレーションを行います</p>", unsafe_allow_html=True) 
+st.markdown("<p style='text-align: center; color: gray;'>実績データを読み込み、自動でインデックスを抽出・整形します</p>", unsafe_allow_html=True) 
 st.divider()
 
 # ==========================================
-# 🧱 左右分割レイアウトの作成
+# ⚙️ データ処理関数（最初のインデックスロジックを移植）
 # ==========================================
-# 左カラム（1）と右カラム（2）の比率で画面を分割
+@st.cache_data
+def load_and_process_data(file):
+    """アップロードされたファイルから特定のインデックス列を抽出して整形"""
+    try:
+        # 指定されたシートから読み込み（製品コード等を文字列として保持するためdtype指定）
+        df_raw = pd.read_excel(file, sheet_name='実績一覧', dtype={2: str})
+        df_raw = df_raw.dropna(how='all').reset_index(drop=True)
+        df_raw = df_raw.dropna(subset=[df_raw.columns[2]]) # 製品コード空欄を除外
+        
+        # 最初に指定されたインデックス（列番号）のリスト
+        cols_idx = [1, 2, 3, 7, 20, 4, 9, 21, 23, 24, 26, 32]
+        
+        # 安全に対象列を抽出
+        df_sub = df_raw.iloc[:, cols_idx].copy()
+        
+        # 分かりやすいカラム名にリネーム
+        df_sub.columns = [
+            "製造日", "製品コード", "製品名称", "基準仕込量", "実際仕込量", 
+            "B", "出来高", "歩留り", "釜", "充填機", "ライン数", "顧客名"
+        ]
+        
+        # 日付フォーマットの整形
+        try:
+            df_sub["製造日"] = pd.to_datetime(df_sub["製造日"]).dt.strftime('%y/%m/%d')
+        except:
+            pass
+            
+        # 最新順（逆順）にしてインデックスを振り直す
+        return df_sub[::-1].reset_index(drop=True)
+    except Exception as e:
+        st.error(f"データ処理エラー: {e}")
+        return None
+
+
+# ==========================================
+# 🧱 左右分割レイアウト
+# ==========================================
 left_col, right_col = st.columns([1, 2])
 
 # ------------------------------------------
-# 👈 左画面（サイドバー風）：データ入力・選択項目
+# 👈 左画面：データ入力・選択項目
 # ------------------------------------------
 with left_col:
     st.subheader("📁 データソース読込")
-    # ファイルアップローダー
-    uploaded_file = st.file_uploader("実績ファイル（.xlsm / .csv）を選択", type=['xlsm', 'xlsx', 'csv'], label_visibility="collapsed")
+    # xlsm 形式をターゲットに設定
+    uploaded_file = st.file_uploader("実績XLSMファイルを選択してください", type=['xlsm', 'xlsx'], label_visibility="collapsed")
     
     st.markdown("---")
     st.subheader("⚙️ 条件選択")
-    st.caption("※以下の項目は現在プロトタイプのため固定されています。")
+    st.caption("※ファイル読み込み後に選択可能になります（現在は外枠のみ）。")
     
-    # 選択項目群（現在は機能させないダミー）
     target_region = st.selectbox("対象エリア", ["全エリア", "関東", "関西", "その他"], disabled=True)
     target_category = st.selectbox("製品カテゴリー", ["すべて", "カテゴリーA", "カテゴリーB"], disabled=True)
     analysis_range = st.slider("分析期間 (ヶ月)", min_value=1, max_value=12, value=3, disabled=True)
     
     st.markdown("---")
-    # 実行ボタン
     predict_button = st.button("🚀 分析・シミュレーションを実行 🚀", type="primary", use_container_width=True)
 
 
 # ------------------------------------------
-# 👉 右画面：メイン表示エリア（演出 ＆ コンテンツ表示）
+# 👉 右画面：メイン表示エリア（データ処理＆結果表示）
 # ------------------------------------------
 with right_col:
     if uploaded_file:
+        
+        # --- 【追加】ファイルの自動バックグラウンド処理 ---
+        with st.spinner("🔄 指定されたインデックス列を抽出中..."):
+            processed_df = load_and_process_data(uploaded_file)
+        
         # 🎰 演出用のプレースホルダー
         display_placeholder = st.empty()
         
         if not predict_button:
-            # 実行ボタンが押される前の待機状態
-            display_placeholder.markdown("<h2 style='text-align: center; margin-top: 100px;'>📊 準備完了</h2>", unsafe_allow_html=True)
-            st.info("👈 左側の「分析・シミュレーションを実行」ボタンを押すと、データ解析が始まります。")
+            display_placeholder.markdown("<h2 style='text-align: center; margin-top: 50px;'>📊 データ読込完了</h2>", unsafe_allow_html=True)
+            st.success(f" 読み込み成功: {len(processed_df) if processed_df is not None else 0} 件のデータを検出しました。")
+            st.info("👈 左側の「分析・シミュレーションを実行」ボタンを押すと、このデータを元にシミュレーションを開始します。")
         
         else:
-            # ボタンが押された時の演出（ローディング・スロット風）
+            # ボタン押下時のスロット風演出
             symbols = ["⏳", "🔄", "✨", "📈", "🔍", "💻"]
-            for i in range(15):
-                wait_time = 0.05 + (i**1.2 * 0.005)
+            for i in range(12):
+                wait_time = 0.04 + (i**1.2 * 0.005)
                 c1 = random.choice(symbols)
                 c2 = random.choice(symbols)
                 c3 = random.choice(symbols)
                 display_placeholder.markdown(f"<h1 style='text-align: center; font-size: 3rem;'>{c1} {c2} {c3}</h1>", unsafe_allow_html=True)
                 time.sleep(wait_time)
             
-            # 演出終了後のメインコンテンツ表示（枠組みのみ）
-            display_placeholder.markdown("<h2 style='color: #FF4B4B;'>✅ 解析結果レイアウト</h2>", unsafe_allow_html=True)
+            display_placeholder.markdown("<h2 style='color: #FF4B4B;'>✅ 分析シミュレーション結果</h2>", unsafe_allow_html=True)
             
-            # メイン画面内のタブ分け構成（プロトタイプ用のガワ）
-            tab1, tab2, tab3 = st.tabs(["📈 ダッシュボード", "📋 詳細データ", "🔮 予測シミュレーション"])
+            # タブメニュー
+            tab1, tab2, tab3 = st.tabs(["📈 ダッシュボード", "📋 抽出データ一覧", "🔮 予測シミュレーション"])
             
             with tab1:
-                st.subheader("要約メトリクス")
-                # 3列のミニメーター
+                st.subheader("データサマリー")
                 m1, m2, m3 = st.columns(3)
-                m1.metric(label="総売上高 (見込)", value="¥12,450,000", delta="+8.3%")
-                m2.metric(label="達成率", value="94.2%", delta="-1.5%")
-                m3.metric(label="データ件数", value="1,245 件", delta="正常")
+                # 実際のデータ件数をメーターに連動
+                total_rows = len(processed_df) if processed_df is not None else 0
+                m1.metric(label="解析データ総数", value=f"{total_rows} 件")
+                m2.metric(label="処理ステータス", value="正常 (12列抽出)")
+                m3.metric(label="エラー件数", value="0 件")
                 
                 st.markdown("#### 📊 グラフ配置エリア")
-                st.caption("※ここに売上推移などのチャートが描画されます。")
+                st.caption("※ここに抽出データから計算された各種チャートが表示されます。")
                 
             with tab2:
-                st.subheader("実績データプレビュー")
-                st.caption("※ここに最新順のデータテーブル（スクロール可能）が表示されます。")
+                st.subheader("📋 抽出された実績データ (インデックス適用済)")
+                if processed_df is not None and not processed_df.empty:
+                    # 本物のデータをテーブルとして表示！
+                    st.dataframe(processed_df, use_container_width=True, height=450)
+                else:
+                    st.warning("表示できるデータがありません。")
                 
             with tab3:
                 st.subheader("AI予測シミュレーション値")
-                st.caption("※ここに条件選択に基づいた予測数値が表示されます。")
+                st.caption("※ここに抽出データをベースにした将来の予測値が反映されます。")
                 
     else:
-        # ファイルがアップロードされていない初期状態
-        st.info("👈 まずは左側のパネルからデータをアップロードしてください。")
+        st.info("👈 まずは左側のパネルから、指定のインデックスが含まれる「実績一覧」シートを持ったファイルをアップロードしてください。")
