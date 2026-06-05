@@ -17,10 +17,7 @@ st.markdown(
         padding-bottom: 2rem;
     }
     
-    /* 左側のカラムを画面に固定するスタイル 
-       Codespacesの画面幅やレスポンシブ対応のため、Streamlitのカラム構造を維持しつつ
-       PC表示(横幅992px以上)の時だけ固定されるようにメディアクエリを適用します。
-    */
+    /* 左側のカラムを画面に固定するスタイル */
     @media (min-width: 992px) {
         div[data-testid="stColumn"]:nth-of-type(1) {
             position: fixed;
@@ -76,7 +73,6 @@ def load_and_process_data(file):
 # ==========================================
 # 🧱 左右分割レイアウトの作成
 # ==========================================
-# CSSで制御するため、ここでの比率は [1, 2] のままにしておきます
 left_col, right_col = st.columns([1, 2])
 
 # グローバルでデータを保持する変数の初期化
@@ -137,7 +133,6 @@ with right_col:
                 total_count = df_pie['件数'].sum()
                 df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
                 
-                # 「その他」の表記調整
                 df_pie[target_column] = df_pie[target_column].replace('custom_other', 'その他')
                 df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
@@ -162,11 +157,12 @@ with right_col:
                     hoverinfo='label+value+percent'
                 )
                 
+                # 【修正】uniformtext_minmode を uniformtext_mode に修正しました
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
                     height=500, 
                     showlegend=True,
-                    uniformtext_minmode='hide',
+                    uniformtext_mode='hide', 
                     uniformtext_minsize=9,
                     annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
                 )
