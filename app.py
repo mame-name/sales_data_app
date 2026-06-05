@@ -16,7 +16,7 @@ st.divider()
 # ==========================================
 @st.cache_data
 def load_and_process_data(file):
-    """アップロードされたファイルから特定のインデックス列を抽出し、元の列名を維持して整形"""
+    """アップロードされたファイルをそのまま全列読み込み、【伝票計】のみ除外する"""
     try:
         # Excelファイルの全シート名を取得して安全確認
         xl = pd.ExcelFile(file)
@@ -25,7 +25,7 @@ def load_and_process_data(file):
         # 'Sheet1' があればそれを使い、無ければ1番最初のシートを自動選択
         target_sheet = 'Sheet1' if 'Sheet1' in sheet_names else sheet_names[0]
         
-        # 1. 元のファイルの1行目をヘッダー（列名）としてそのまま読み込み
+        # 1. ファイルの最初の行をそのまま列名として全列読み込み
         df_raw = pd.read_excel(file, sheet_name=target_sheet)
         
         # 【クレンジング】データフレーム全体から「【伝票計】」という文字が含まれる行を完全に除外
@@ -34,15 +34,8 @@ def load_and_process_data(file):
         # すべて空の行を削除
         df_raw = df_raw.dropna(how='all').reset_index(drop=True)
         
-        # 2. 指定されたインデックス（列番号）のリスト
-        cols_idx = [1, 2, 3, 7, 20, 4, 9, 21, 23, 24, 26, 32]
-        
-        # 存在する列数の範囲内にあるインデックスだけを安全に抽出（エラー防止ガード）
-        valid_idx = [idx for idx in cols_idx if idx < len(df_raw.columns)]
-        df_sub = df_raw.iloc[:, valid_idx].copy()
-        
         # 最新順（逆順）にしてインデックスを振り直す
-        return df_sub[::-1].reset_index(drop=True)
+        return df_raw[::-1].reset_index(drop=True)
         
     except ModuleNotFoundError as e:
         st.error("🚨 必須ライブラリが不足しています。ターミナルで `pip install openpyxl` を実行してください。")
@@ -85,8 +78,8 @@ with left_col:
 with right_col:
     if uploaded_file:
         
-        # ファイルの自動バックグラウンド処理（元の列名がそのまま維持されます）
-        with st.spinner("🔄 指定されたインデックス列を抽出中..."):
+        # ファイルの自動バックグラウンド処理（全列をそのまま維持）
+        with st.spinner("🔄 実績データを読み込み中..."):
             processed_df = load_and_process_data(uploaded_file)
         
         # 🎰 演出用のプレースホルダー
@@ -122,16 +115,16 @@ with right_col:
                 
                 total_rows = len(processed_df) if processed_df is not None else 0
                 m1.metric(label="解析データ総数", value=f"{total_rows} 件")
-                m2.metric(label="処理ステータス", value="正常 (指定列を抽出・クレンジング済)")
+                m2.metric(label="処理ステータス", value="正常 (全列読込・クレンジング済)")
                 m3.metric(label="エラー件数", value="0 件")
                 
                 st.markdown("#### 📊 グラフ配置エリア")
                 st.caption("※ここに抽出データから計算された各種チャートが表示されます。")
                 
             with tab2:
-                st.subheader("📋 抽出された実績データ (元の列名を維持)")
+                st.subheader("📋 実績データ一覧（全列表示）")
                 if processed_df is not None and not processed_df.empty:
-                    # 本物の列名のままテーブルを表示
+                    # 本物の列名・全列でテーブルを表示
                     st.dataframe(processed_df, use_container_width=True, height=450)
                 else:
                     st.warning("表示できるデータがありません。")
@@ -141,4 +134,4 @@ with right_col:
                 st.caption("※ここに抽出データをベースにした将来の予測値が反映されます。")
                 
     else:
-        st.info("👈 まずは左側のパネルから、指定のインデックスが含まれるファイル（Sheet1）をアップロードしてください。")
+        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
