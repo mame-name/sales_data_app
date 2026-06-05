@@ -94,11 +94,11 @@ with right_col:
             # 1. グラフ配置エリア（最上部）
             st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
-            # 【修正】実際のExcelの列名「得意先名」をターゲットに設定
-            target_column = '得意先名' 
+            # 【変更】列名を「請求先名」に変更
+            target_column = '請求先名' 
             
             if target_column in processed_df.columns:
-                # 得意先名ごとの件数を集計してデータフレーム化
+                # 請求先名ごとの件数を集計してデータフレーム化
                 df_pie = processed_df[target_column].value_counts().reset_index()
                 df_pie.columns = [target_column, '件数']
                 
@@ -107,8 +107,15 @@ with right_col:
                     df_pie, 
                     names=target_column, 
                     values='件数', 
-                    title='得意先名毎のデータ構成比',
-                    hole=0.3 # ドーナツグラフ風
+                    title='請求先名毎のデータ構成比（大きい順・時計回り）',
+                    hole=0.3
+                )
+                
+                # 大きい順にソートし、12時の方向から時計回りに並べる
+                fig.update_traces(
+                    sort=True, 
+                    direction='clockwise', 
+                    rotation=90
                 )
                 
                 # グラフのレイアウト調整
@@ -134,3 +141,4 @@ with right_col:
     else:
         # 初期状態の表示
         st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
+    
