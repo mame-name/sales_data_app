@@ -88,7 +88,7 @@ selected_client = "全選択"
 is_disabled = True
 
 # ------------------------------------------
-# 👈 左画面：日付入力ボックス（はじめ・おわり） ＆ 条件選択
+# 👈 左画面：日付入力ボックス ＆ 条件選択
 # ------------------------------------------
 with left_col:
     st.subheader("📁 データ読込")
@@ -118,17 +118,13 @@ with left_col:
                 start_date = processed_df['売上日'].min().date()
                 end_date = processed_df['売上日'].max().date()
     
-    # 【修正】スライダーを廃止し、はじめとおわりの日付入力ボックスを個別に配置
-    st.caption("📅 売上期間")
-    col_date1, col_date2 = st.columns(2)
-    with col_date1:
-        selected_start = st.date_input("はじめ", value=start_date, disabled=is_disabled, label_visibility="visible")
-    with col_date2:
-        selected_end = st.date_input("おわり", value=end_date, disabled=is_disabled, label_visibility="visible")
+    # 【修正】「開始」「終了」への文言変更 ＆ 途切れ対策として縦並びに変更
+    selected_start = st.date_input("期間（開始）", value=start_date, disabled=is_disabled)
+    selected_end = st.date_input("期間（終了）", value=end_date, disabled=is_disabled)
     
     # 日付の前後関係が逆転した場合の安全対策
     if selected_start > selected_end:
-        st.error("🚨 『はじめ』の日付が『おわり』より後になっています。")
+        st.error("🚨 『開始』の日付が『終了』より後になっています。")
     
     # 2. 営業担当名プルダウン
     selected_staff = st.selectbox("営業担当名", staff_options, disabled=is_disabled)
@@ -230,7 +226,7 @@ with right_col:
                     fig = px.pie(
                         df_pie, 
                         names='凡例表示名', 
-                        values='件_数' if '件_数' in df_pie.columns else '件数', 
+                        values='件数', 
                         title='',
                         hole=0.4
                     )
