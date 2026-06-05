@@ -78,29 +78,29 @@ with left_col:
             st.markdown("---")
             st.subheader("📊 データサマリー")
             
-            # メーターの配置（グラフエリアはここには置かない）
+            # メーターの配置
             total_rows = len(processed_df)
             st.metric(label="解析データ総数", value=f"{total_rows} 件")
             st.metric(label="処理ステータス", value="正常 (【 行除外済)")
 
 
 # ------------------------------------------
-# 👉 右画面：メイン表示エリア（テーブル ＆ グラフ配置）
+# 👉 右画面：メイン表示エリア（グラフ ＆ テーブル配置）
 # ------------------------------------------
 with right_col:
     if uploaded_file:
         if processed_df is not None:
-            # 1. データテーブル表示エリア
-            st.markdown("<h2 style='color: #FF4B4B; margin-top: 0px;'>📋 実績データ一覧（全列表示）</h2>", unsafe_allow_html=True)
+            # 1. グラフ配置エリア（最上部に移動）
+            st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
+            st.caption("※ここに抽出データから計算された各種チャートが描画されます。")
+            st.divider()
+            
+            # 2. データテーブル表示エリア（グラフの下）
+            st.markdown("## 📋 実績データ一覧（全列表示）")
             if not processed_df.empty:
-                st.dataframe(processed_df, use_container_width=True, height=400) # 高さを少し調整してグラフを見やすく
+                st.dataframe(processed_df, use_container_width=True, height=450)
             else:
                 st.warning("表示できるデータがありません。")
-            
-            # 2. グラフ配置エリア（右画面の下部にキープ）
-            st.divider()
-            st.markdown("### 📈 グラフ配置エリア")
-            st.caption("※ここに抽出データから計算された各種チャートが描画されます。")
             
         else:
             st.warning("データの読み込みに失敗したため、表示できません。")
