@@ -16,43 +16,31 @@ st.divider()
 # ==========================================
 @st.cache_data
 def load_and_process_data(file):
-    """アップロードされたファイルから特定のインデックス列を抽出して整形"""
+    """アップロードされたファイルから特定のインデックス列を抽出し、元の列名を維持して整形"""
     try:
         # Excelファイルの全シート名を取得して安全確認
         xl = pd.ExcelFile(file)
         sheet_names = xl.sheet_names
         
-        # 'Sheet1' があればそれを使い、無ければ1番最初のシートを自動選択する安全仕様
+        # 'Sheet1' があればそれを使い、無ければ1番最初のシートを自動選択
         target_sheet = 'Sheet1' if 'Sheet1' in sheet_names else sheet_names[0]
         
-        # 1. 指定されたシートから全列を読み込み
-        df_raw = pd.read_excel(file, sheet_name=target_sheet, dtype={2: str})
+        # 1. 元のファイルの1行目をヘッダー（列名）としてそのまま読み込み
+        df_raw = pd.read_excel(file, sheet_name=target_sheet)
         
         # 【クレンジング】データフレーム全体から「【伝票計】」という文字が含まれる行を完全に除外
         df_raw = df_raw[~df_raw.astype(str).apply(lambda x: x.str.contains('【伝票計】')).any(axis=1)]
         
-        # 空行の削除と製品コード（インデックス2）の空欄除外
+        # すべて空の行を削除
         df_raw = df_raw.dropna(how='all').reset_index(drop=True)
-        df_raw = df_raw.dropna(subset=[df_raw.columns[2]])
         
-        # 2. 最初に指定されたインデックス（列番号）のリスト
+        # 2. 指定されたインデックス（列番号）のリスト
         cols_idx = [1, 2, 3, 7, 20, 4, 9, 21, 23, 24, 26, 32]
         
-        # 安全に対象列を抽出
-        df_sub = df_raw.iloc[:, cols_idx].copy()
+        # 存在する列数の範囲内にあるインデックスだけを安全に抽出（エラー防止ガード）
+        valid_idx = [idx for idx in cols_idx if idx < len(df_raw.columns)]
+        df_sub = df_raw.iloc[:, valid_idx].copy()
         
-        # 分かりやすいカラム名にリネーム
-        df_sub.columns = [
-            "製造日", "製品コード", "製品名称", "基準仕込量", "実際仕込量", 
-            "B", "出来高", "歩留り", "釜", "充填機", "ライン数", "顧客名"
-        ]
-        
-        # 日付フォーマットの整形
-        try:
-            df_sub["製造日"] = pd.to_datetime(df_sub["製造日"]).dt.strftime('%y/%m/%d')
-        except:
-            pass
-            
         # 最新順（逆順）にしてインデックスを振り直す
         return df_sub[::-1].reset_index(drop=True)
         
@@ -77,7 +65,6 @@ left_col, right_col = st.columns([1, 2])
 # ------------------------------------------
 with left_col:
     st.subheader("📁 データソース読込")
-    # xlsm / xlsx 形式をターゲットに設定
     uploaded_file = st.file_uploader("実績XLSMファイルを選択してください", type=['xlsm', 'xlsx'], label_visibility="collapsed")
     
     st.markdown("---")
@@ -98,7 +85,7 @@ with left_col:
 with right_col:
     if uploaded_file:
         
-        # ファイルの自動バックグラウンド処理（ここで【伝票計】が消えます）
+        # ファイルの自動バックグラウンド処理（元の列名がそのまま維持されます）
         with st.spinner("🔄 指定されたインデックス列を抽出中..."):
             processed_df = load_and_process_data(uploaded_file)
         
@@ -106,7 +93,6 @@ with right_col:
         display_placeholder = st.empty()
         
         if processed_df is None:
-            # エラー発生時は処理をストップ
             st.warning("データの読み込みに失敗したため、処理を中断しました。")
             
         elif not predict_button:
@@ -136,16 +122,16 @@ with right_col:
                 
                 total_rows = len(processed_df) if processed_df is not None else 0
                 m1.metric(label="解析データ総数", value=f"{total_rows} 件")
-                m2.metric(label="処理ステータス", value="正常 (12列抽出・クレンジング済)")
+                m2.metric(label="処理ステータス", value="正常 (指定列を抽出・クレンジング済)")
                 m3.metric(label="エラー件数", value="0 件")
                 
                 st.markdown("#### 📊 グラフ配置エリア")
                 st.caption("※ここに抽出データから計算された各種チャートが表示されます。")
                 
             with tab2:
-                st.subheader("📋 抽出された実績データ (インデックス適用済)")
+                st.subheader("📋 抽出された実績データ (元の列名を維持)")
                 if processed_df is not None and not processed_df.empty:
-                    # クレンジング後のきれいなデータを表示
+                    # 本物の列名のままテーブルを表示
                     st.dataframe(processed_df, use_container_width=True, height=450)
                 else:
                     st.warning("表示できるデータがありません。")
