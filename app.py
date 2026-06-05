@@ -146,7 +146,8 @@ with right_col:
                     hole=0.4
                 )
                 
-                # 【修正】文字サイズを一律に固定するためのベースフォントサイズを指定
+                # 【修正】
+                # - textfont と insidetextfont の両方で size=11 を強制し、自動変形をブロック
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -156,18 +157,16 @@ with right_col:
                     customdata=df_pie[[target_column]].values,
                     textposition='inside',
                     insidetextorientation='horizontal',
-                    insidetextfont=dict(size=11), # 基本サイズを11pxに統一
+                    textfont=dict(size=11),       # 全体のフォントサイズベースを固定
+                    insidetextfont=dict(size=11), # 内側文字も11pxに固定してお節介な縮小を防止
                     hoverinfo='label+value+percent'
                 )
                 
-                # 【修正】uniformtext_mode='exact' にし、minsize=11 にすることで
-                # 大きなスライスも小さなスライスも、すべて強制的に「11px一律」に揃えます
+                # 【修正】エラーの原因となっていた uniformtext の指定を完全に削除しました
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
                     height=500, 
                     showlegend=True,
-                    uniformtext_mode='exact', 
-                    uniformtext_minsize=11,
                     annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
                 )
                 
