@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
 # ページ設定（ワイドモードで左右分割を活かす）
 st.set_page_config(layout="wide", page_title="営業データ分析システム")
@@ -90,9 +91,36 @@ with left_col:
 with right_col:
     if uploaded_file:
         if processed_df is not None:
-            # 1. グラフ配置エリア（最上部に移動）
+            # 1. グラフ配置エリア（最上部）
             st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
-            st.caption("※ここに抽出データから計算された各種チャートが描画されます。")
+            
+            # 【新規追加】顧客名毎の円グラフ描画ロジック
+            # ※もしExcelの実際の列名が「顧客名」ではない場合、ここの文字列を書き換えてください。
+            target_column = '顧客名' 
+            
+            if target_column in processed_df.columns:
+                # 顧客名ごとの件数を集計してデータフレーム化
+                df_pie = processed_df[target_column].value_counts().reset_index()
+                df_pie.columns = [target_column, '件数']
+                
+                # Plotlyで円グラフを作成
+                fig = px.pie(
+                    df_pie, 
+                    names=target_column, 
+                    values='件数', 
+                    title='顧客名毎のデータ構成比',
+                    hole=0.3 # ドーナツグラフ風にして少しスタイリッシュに
+                )
+                
+                # グラフのレイアウト調整（文字被り防止など）
+                fig.update_layout(margin=dict(t=40, b=10, l=10, r=10), height=400)
+                
+                # 画面に描画
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning(f"⚠️ アップロードされたデータに『{target_column}』という列名が見つからないため、円グラフを描画できません。実際の列名に合わせてコード内の文字を調整してください。")
+                st.caption(f"現在の列名一覧: {list(processed_df.columns)}")
+            
             st.divider()
             
             # 2. データテーブル表示エリア（グラフの下）
