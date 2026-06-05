@@ -94,26 +94,29 @@ with right_col:
             # 1. グラフ配置エリア（最上部）
             st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
-            # 【変更】列名を「請求先名」に変更
             target_column = '請求先名' 
             
             if target_column in processed_df.columns:
-                # 請求先名ごとの件数を集計してデータフレーム化
+                # 請求先名ごとの件数を集計
                 df_pie = processed_df[target_column].value_counts().reset_index()
                 df_pie.columns = [target_column, '件数']
+                
+                # 【確実化】データを件数の多い順に明示的に並び替える
+                df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
                 # Plotlyで円グラフを作成
                 fig = px.pie(
                     df_pie, 
                     names=target_column, 
                     values='件数', 
-                    title='請求先名毎のデータ構成比（大きい順・時計回り）',
+                    title='請求先名毎のデータ構成比（12時スタート・大きい順）',
                     hole=0.3
                 )
                 
-                # 大きい順にソートし、12時の方向から時計回りに並べる
+                # 12時の位置（rotation=90）から時計回り（direction='clockwise'）に配置し、
+                # 自動ソートをオフ（sort=False）にすることで、上で並び替えた「大きい順」をそのまま強制適用します
                 fig.update_traces(
-                    sort=True, 
+                    sort=False, 
                     direction='clockwise', 
                     rotation=90
                 )
