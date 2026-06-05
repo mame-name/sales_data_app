@@ -104,10 +104,17 @@ with right_col:
                 # データを件数の多い順に明示的に並び替え
                 df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
-                # Plotlyで円グラフを作成
+                # 【新規追加】割合（％）を計算して凡例用のラベルを作成
+                total_count = df_pie['件数'].sum()
+                df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1) # 小数点第1位まで
+                
+                # 「請求先名 (〇〇.〇%)」という表示用の新しい列を作る
+                df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
+                
+                # Plotlyで円グラフを作成（namesに合体させた『凡例表示名』を指定）
                 fig = px.pie(
                     df_pie, 
-                    names=target_column, 
+                    names='凡例表示名', 
                     values='件数', 
                     title='請求先名毎のデータ構成比（12時スタート・大きい順）',
                     hole=0.3
@@ -142,4 +149,5 @@ with right_col:
             st.warning("データの読み込みに失敗したため、表示できません。")
     else:
         # 初期状態の表示
-        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")      
+        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
+        
