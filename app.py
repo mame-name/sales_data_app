@@ -146,8 +146,9 @@ with right_col:
                     hole=0.4
                 )
                 
-                # 【修正】
-                # - textfont と insidetextfont の両方で size=11 を強制し、自動変形をブロック
+                # 【修正】文字サイズを一律「14px」に変更し、自動縮小されないよう完全固定
+                font_size = 14  # ← もしもっと大きくしたければ、ここを 15 や 16 に変更してください
+                
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -157,15 +158,14 @@ with right_col:
                     customdata=df_pie[[target_column]].values,
                     textposition='inside',
                     insidetextorientation='horizontal',
-                    textfont=dict(size=11),       # 全体のフォントサイズベースを固定
-                    insidetextfont=dict(size=11), # 内側文字も11pxに固定してお節介な縮小を防止
+                    textfont=dict(size=font_size),       # 14px一律に指定
+                    insidetextfont=dict(size=font_size), # 自動縮小を上書きして14pxをキープ
                     hoverinfo='label+value+percent'
                 )
                 
-                # 【修正】エラーの原因となっていた uniformtext の指定を完全に削除しました
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
-                    height=500, 
+                    height=550, # 文字が大きくなった分、グラフ全体の高さを少し広げて見やすく調整
                     showlegend=True,
                     annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
                 )
@@ -187,5 +187,4 @@ with right_col:
         else:
             st.warning("データの読み込みに失敗したため、表示できません。")
     else:
-        # 初期状態の表示
         st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
