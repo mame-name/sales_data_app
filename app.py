@@ -37,11 +37,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# タイトルエリア
-st.markdown("<h1 style='text-align: center;'>🤖 営業データ分析システム 🤖</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>実績データを読み込み、自動で整形・可視化を行います</p>", unsafe_allow_html=True) 
-st.divider()
-
 # ==========================================
 # ⚙️ データ処理関数
 # ==========================================
@@ -79,8 +74,15 @@ left_col, right_col = st.columns([1, 2])
 processed_df = None
 filtered_df = None
 
+# 初期状態の選択肢と変数
+staff_options = ["全選択"]
+client_options = ["全選択"]
+selected_staff = "全選択"
+selected_client = "全選択"
+is_disabled = True
+
 # ------------------------------------------
-# 👈 左画面：データ入力 ＆ フィルター条件の連動
+# 👈 左画面：データ入力 ＆ フィルター条件の制御
 # ------------------------------------------
 with left_col:
     st.subheader("📁 データソース読込")
@@ -89,11 +91,6 @@ with left_col:
     st.markdown("---")
     st.subheader("⚙️ 条件選択")
     
-    # ファイルがまだアップロードされていない時の初期値
-    staff_options = ["全選択"]
-    client_options = ["全選択"]
-    is_disabled = True
-    
     # ファイルがある場合はExcelからユニークなリストを取り出す
     if uploaded_file:
         with st.spinner("🔄 実績データを読み込み中..."):
@@ -101,7 +98,6 @@ with left_col:
             
         if processed_df is not None:
             is_disabled = False
-            # 営業担当名リストの作成（空文字を除外）
             if '営業担当名' in processed_df.columns:
                 unique_staff = processed_df['営業担当名'].dropna().unique().tolist()
                 staff_options = ["全選択"] + sorted([str(s) for s in unique_staff])
@@ -109,25 +105,24 @@ with left_col:
     # 1つ目のプルダウン：営業担当名
     selected_staff = st.selectbox("営業担当名", staff_options, disabled=is_disabled)
     
-    # 営業担当名の選択に応じて、あらかじめ一度データを絞り込む（請求先リストを動的に変えるため）
+    # 営業担当名の選択に応じてデータを一度絞り込む（請求先リストを動的に生成するため）
     if processed_df is not None:
         filtered_df = processed_df.copy()
         if selected_staff != "全選択":
             filtered_df = filtered_df[filtered_df['営業担当名'].astype(str) == selected_staff]
         
-        # 絞り込まれたデータから請求先名リストを作成
         if '請求先名' in filtered_df.columns:
             unique_clients = filtered_df['請求先名'].dropna().unique().tolist()
             client_options = ["全選択"] + sorted([str(c) for c in unique_clients])
             
-    # 2つ目のプルダウン：請求先名（1つ目の結果を受けて動的に変化）
+    # 2つ目のプルダウン：請求先名
     selected_client = st.selectbox("請求先名", client_options, disabled=is_disabled)
     
-    # 請求先名が選ばれていれば、さらにデータを絞り込む
+    # 請求先名が選ばれていれば、さらに最終データを絞り込む
     if filtered_df is not None and selected_client != "全選択":
         filtered_df = filtered_df[filtered_df['請求先名'].astype(str) == selected_client]
 
-    # 左側サマリーメーターの常時表示
+    # 左側サマリーメーターの表示
     if processed_df is not None and filtered_df is not None:
         st.markdown("---")
         st.subheader("📊 データサマリー")
@@ -138,34 +133,51 @@ with left_col:
 
 
 # ------------------------------------------
-# 👉 右画面：メイン表示エリア（選択条件によってグラフが自動変形）
+# 👉 右画面：メイン表示エリア（タイトルも動的に連動！）
 # ------------------------------------------
 with right_col:
+    # 【新規ロジック】選択状態に合わせて動的に変わるメインタイトルの生成
+    if not uploaded_file:
+        main_title = "🤖 営業データ分析システム 🤖"
+        sub_title = "実績データを読み込み、自動で整形・可視化を行います"
+    else:
+        # 営業担当名のテキスト作成
+        staff_part = "全営業担当" if selected_staff == "全選択" else f"担当: {selected_staff}"
+        
+        # 請求先名に応じたテキストと集計モードの切り替え
+        if selected_client == "全選択":
+            main_title = f"📈 {staff_part} 請求先別データ構成比"
+            sub_title = "全体実績から上位15社の請求先シェアを分析しています"
+            
+            target_column = '請求先名'
+            title_text = "📊 請求先名毎のデータ構成比（上位15社＋その他）"
+            center_label = "総請求先数"
+        else:
+            main_title = f"🔍 {staff_part} 【{selected_client}】 品名別内訳"
+            sub_title = f"選択された取引先（{selected_client}）が購入している製品群の構成比です"
+            
+            target_column = '品名'
+            title_text = f"📊 品名毎のデータ構成比（上位15品＋その他）"
+            center_label = "総品名数"
+
+    # 動的タイトルを画面に描画
+    st.markdown(f"<h1 style='text-align: center; font-size: 28px;'>{main_title}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center; color: gray;'>{sub_title}</p>", unsafe_allow_html=True) 
+    st.divider()
+
     if uploaded_file:
         if processed_df is not None and filtered_df is not None:
             
-            # 1. グラフ配置エリア（最上部）
+            # 1. グラフ配置エリア
             st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
-            # 請求先名のプルダウンが「全選択」かどうかで、集計対象の列を切り替える
-            if selected_client == "全選択":
-                target_column = '請求先名'
-                title_text = "📊 請求先名毎のデータ構成比（上位15社＋その他）"
-                center_label = "総請求先数"
-            else:
-                target_column = '品名'
-                title_text = f"📊 【{selected_client}】の品名毎のデータ構成比（上位15品＋その他）"
-                center_label = "総品名数"
-            
             if target_column in filtered_df.columns:
-                # 絞り込まれたデータから、指定の列（請求先名 or 品名）を数え上げる
                 original_unique_count = filtered_df[target_column].nunique()
                 
                 df_pie = filtered_df[target_column].value_counts().reset_index()
                 df_pie.columns = [target_column, '件数']
                 df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
-                # 上位15個とそれ以外（その他）をグルーピング
                 top_n = 15
                 if len(df_pie) > top_n:
                     df_top = df_pie.head(top_n).copy()
@@ -179,7 +191,6 @@ with right_col:
                 df_pie[target_column] = df_pie[target_column].replace('custom_other', 'その他')
                 df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
-                # タイトルの独立表示
                 st.markdown(f"#### {title_text}")
                 
                 fig = px.pie(
@@ -190,7 +201,6 @@ with right_col:
                     hole=0.4
                 )
                 
-                # 割合（％）のみ、14px、平行固定
                 font_size = 14
                 fig.update_traces(
                     sort=False, 
@@ -218,7 +228,7 @@ with right_col:
             
             st.divider()
             
-            # 2. データテーブル表示エリア（グラフの下・選択条件で絞り込まれた一覧）
+            # 2. データテーブル表示エリア
             st.markdown("## 📋 実績データ一覧（フィルター後）")
             if not filtered_df.empty:
                 st.dataframe(filtered_df, use_container_width=True, height=500)
