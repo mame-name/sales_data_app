@@ -97,7 +97,7 @@ with right_col:
             target_column = '請求先名' 
             
             if target_column in processed_df.columns:
-                # 元のユニークな請求先数をカウント
+                # 元のユニークな請求先数をカウント（真ん中の文字用）
                 original_unique_count = processed_df[target_column].nunique()
                 
                 # 請求先名ごとの件数を集計して多い順にソート
@@ -105,19 +105,20 @@ with right_col:
                 df_pie.columns = [target_column, '件数']
                 df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
-                # 上位15社とそれ以外（その他）をグルーピング
+                # 【新規修正】上位15社とそれ以外（その他）をグルーピングするロジック
                 top_n = 15
                 if len(df_pie) > top_n:
+                    # 1～15位のデータ
                     df_top = df_pie.head(top_n).copy()
+                    # 16位以降のデータを合計して「その他」の行を作る
                     other_count = df_pie.iloc[top_n:]['件数'].sum()
                     df_other = pd.DataFrame([{target_column: 'その他', '件数': other_count}])
+                    # 合体させる
                     df_pie = pd.concat([df_top, df_other], ignore_index=True)
                 
-                # 割合（％）を計算
+                # 割合（％）を再計算して凡例用のラベルを作成
                 total_count = df_pie['件数'].sum()
                 df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
-                
-                # 右側の凡例リスト（Legend）用の名前を生成
                 df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
                 # タイトルを独立して表示
@@ -133,27 +134,23 @@ with right_col:
                 )
                 
                 # 【修正】
-                # - textinfo='label+percent' に設定して名前と％を両方出す
-                # - texttemplate を使って円の内部の表示形式を「[請求先名]: [割合]%」にカスタム
+                # - textinfo='percent' に戻して、グラフの中に％を自動表示
+                # - ただし、外側に飛び出す細い引き出し線（重なり原因）をオフにするため automargin 等を調整
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
                     rotation=0,
-                    textinfo='label+percent',
-                    texttemplate='%{customdata[0]}<br>%{percent:.1%}', # 上段に本来の名前、下段に綺麗にフォーマットされた％を表示
-                    customdata=df_pie[[target_column]].values,       # customdataとして本来の請求先名を紐付け
-                    textposition='inside',                             # 文字が飛び出さないよう内側に固定
-                    hoverinfo='label+value+percent'
+                    textinfo='percent',            # グラフの内側に％数字を表示
+                    textposition='inside',          # 数字は必ず円の内側に入れる（外に引き出さない）
+                    hoverinfo='label+value+percent' # マウス乗せ時は詳細表示
                 )
                 
-                # グラフのレイアウト調整（insideに入り切らない小さなスライスの文字は自動で隠して重なりを防ぐ）
+                # グラフのレイアウト調整（文字が内側に入りきらない場合の非表示設定など）
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
-                    height=500, # 文字が入るスペースを確保するため高さを少しアップ
+                    height=450,
                     showlegend=True,
-                    uniformtext_minmode='hide', # 円が小さすぎて文字がはみ出る場合は、重なる前に自動で非表示にする
-                    uniformtext_minsize=9,
-                    annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
+                    annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=15, showarrow=False)]
                 )
                 
                 # 画面に描画
