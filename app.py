@@ -119,7 +119,7 @@ with right_col:
                 # 割合（％）を再計算して凡例用のラベルを作成
                 total_count = df_pie['件数'].sum()
                 df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
-                df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
+                df_pie['顧客名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
                 # タイトルを独立して表示
                 st.markdown(f"#### 📊 請求先名毎のデータ構成比（上位{top_n}社＋その他）")
