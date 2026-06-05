@@ -6,30 +6,29 @@ import plotly.express as px
 st.set_page_config(layout="wide", page_title="営業データ分析システム")
 
 # ==========================================
-# 🎨 左右独立スクロール・固定表示のためのCSS注入
+# 🎨 レイアウト微調整：左メニューをよりスリムに固定
 # ==========================================
 st.markdown(
     """
     <style>
-    /* Streamlit標準のコンテナの余白を調整 */
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-top: 1.5rem;
+        padding-bottom: 1.5rem;
     }
     
-    /* 左側のカラムを画面に固定するスタイル */
+    /* PC表示(横幅992px以上)の時、左画面を22%に絞り、右画面を75%に広げて有効活用 */
     @media (min-width: 992px) {
         div[data-testid="stColumn"]:nth-of-type(1) {
             position: fixed;
-            width: 28% !important; /* 左画面の幅を固定 */
+            width: 22% !important; /* 幅を28%から22%へスリム化 */
             max-height: 85vh;
-            overflow-y: auto;      /* 左側が長くなった場合も独自スクロール */
-            padding-right: 10px;
+            overflow-y: auto;
+            padding-right: 15px;
         }
         
         div[data-testid="stColumn"]:nth-of-type(2) {
-            margin-left: 35% !important; /* 右画面が左画面と被らないようにマージンをあける */
-            width: 65% !important;
+            margin-left: 25% !important; /* 左が狭まった分、左マージンを詰める */
+            width: 73% !important;        /* 右画面の横幅を大きく拡大 */
         }
     }
     </style>
@@ -68,13 +67,12 @@ def load_and_process_data(file):
 # ==========================================
 # 🧱 左右分割レイアウトの作成
 # ==========================================
-left_col, right_col = st.columns([1, 2])
+left_col, right_col = st.columns([1, 3]) # 比率を [1, 2] から [1, 3] に変更して右をより広く
 
 # グローバルでデータを保持する変数の初期化
 processed_df = None
 filtered_df = None
 
-# 初期状態の選択肢と変数
 staff_options = ["全選択"]
 client_options = ["全選択"]
 selected_staff = "全選択"
@@ -82,18 +80,17 @@ selected_client = "全選択"
 is_disabled = True
 
 # ------------------------------------------
-# 👈 左画面：データ入力 ＆ フィルター条件の制御
+# 👈 左画面：スリム化したデータ入力＆条件選択
 # ------------------------------------------
 with left_col:
-    st.subheader("📁 データソース読込")
+    st.subheader("📁 データ読込")
     uploaded_file = st.file_uploader("実績XLSMファイルを選択してください", type=['xlsm', 'xlsx'], label_visibility="collapsed")
     
     st.markdown("---")
     st.subheader("⚙️ 条件選択")
     
-    # ファイルがある場合はExcelからユニークなリストを取り出す
     if uploaded_file:
-        with st.spinner("🔄 実績データを読み込み中..."):
+        with st.spinner("🔄 読込中..."):
             processed_df = load_and_process_data(uploaded_file)
             
         if processed_df is not None:
@@ -102,10 +99,8 @@ with left_col:
                 unique_staff = processed_df['営業担当名'].dropna().unique().tolist()
                 staff_options = ["全選択"] + sorted([str(s) for s in unique_staff])
     
-    # 1つ目のプルダウン：営業担当名
     selected_staff = st.selectbox("営業担当名", staff_options, disabled=is_disabled)
     
-    # 営業担当名の選択に応じてデータを一度絞り込む（請求先リストを動的に生成するため）
     if processed_df is not None:
         filtered_df = processed_df.copy()
         if selected_staff != "全選択":
@@ -115,60 +110,49 @@ with left_col:
             unique_clients = filtered_df['請求先名'].dropna().unique().tolist()
             client_options = ["全選択"] + sorted([str(c) for c in unique_clients])
             
-    # 2つ目のプルダウン：請求先名
     selected_client = st.selectbox("請求先名", client_options, disabled=is_disabled)
     
-    # 請求先名が選ばれていれば、さらに最終データを絞り込む
     if filtered_df is not None and selected_client != "全選択":
         filtered_df = filtered_df[filtered_df['請求先名'].astype(str) == selected_client]
 
-    # 左側サマリーメーターの表示
     if processed_df is not None and filtered_df is not None:
         st.markdown("---")
-        st.subheader("📊 データサマリー")
+        st.subheader("📊 サマリー")
         total_rows = len(processed_df)
         match_rows = len(filtered_df)
-        st.metric(label="解析データ総数", value=f"{total_rows} 件")
-        st.metric(label="現在の該当件数 (フィルター後)", value=f"{match_rows} 件")
+        st.metric(label="データ総数", value=f"{total_rows} 件")
+        st.metric(label="該当件数", value=f"{match_rows} 件")
 
 
 # ------------------------------------------
-# 👉 右画面：メイン表示エリア（タイトルも動的に連動！）
+# 👉 右画面：広くなったメイン表示（円グラフのサイズを完全固定！）
 # ------------------------------------------
 with right_col:
-    # 【新規ロジック】選択状態に合わせて動的に変わるメインタイトルの生成
     if not uploaded_file:
         main_title = "🤖 営業データ分析システム 🤖"
         sub_title = "実績データを読み込み、自動で整形・可視化を行います"
     else:
-        # 営業担当名のテキスト作成
         staff_part = "全営業担当" if selected_staff == "全選択" else f"担当: {selected_staff}"
-        
-        # 請求先名に応じたテキストと集計モードの切り替え
         if selected_client == "全選択":
             main_title = f"📈 {staff_part} 請求先別データ構成比"
             sub_title = "全体実績から上位15社の請求先シェアを分析しています"
-            
             target_column = '請求先名'
             title_text = "📊 請求先名毎のデータ構成比（上位15社＋その他）"
             center_label = "総請求先数"
         else:
             main_title = f"🔍 {staff_part} 【{selected_client}】 品名別内訳"
             sub_title = f"選択された取引先（{selected_client}）が購入している製品群の構成比です"
-            
             target_column = '品名'
             title_text = f"📊 品名毎のデータ構成比（上位15品＋その他）"
             center_label = "総品名数"
 
-    # 動的タイトルを画面に描画
-    st.markdown(f"<h1 style='text-align: center; font-size: 28px;'>{main_title}</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center; color: gray;'>{sub_title}</p>", unsafe_allow_html=True) 
+    st.markdown(f"<h1 style='text-align: center; font-size: 26px;'>{main_title}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center; color: gray; font-size: 14px;'>{sub_title}</p>", unsafe_allow_html=True) 
     st.divider()
 
     if uploaded_file:
         if processed_df is not None and filtered_df is not None:
             
-            # 1. グラフ配置エリア
             st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
             if target_column in filtered_df.columns:
@@ -202,6 +186,8 @@ with right_col:
                 )
                 
                 font_size = 14
+                
+                # 【修正】固定サイズを維持するため、円の描画ドメイン(x, yの範囲)を明示的に指定
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -212,13 +198,23 @@ with right_col:
                     insidetextorientation='horizontal',
                     textfont=dict(size=font_size),       
                     insidetextfont=dict(size=font_size), 
-                    hoverinfo='label+value+percent'
+                    hoverinfo='label+value+percent',
+                    domain=dict(x=[0.15, 0.85], y=[0.05, 0.95]) # ← 円の表示スペースを確実に固定
                 )
                 
+                # 【修正】凡例の位置を右側から「下側（bottom）」へ移動。
+                # これにより、右側の文字数の長さに引っ張られて円が縮む現象を完全にシャットアウトします。
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
-                    height=500, 
+                    height=580, # 凡例を下に入れたので、縦のスペースを少し拡張
                     showlegend=True,
+                    legend=dict(
+                        orientation="h",     # 凡例を横並び(Horizontal)にする
+                        yanchor="top",
+                        y=-0.05,             # グラフの下側に配置
+                        xanchor="center",
+                        x=0.5
+                    ),
                     annotations=[dict(text=f'{center_label}<br><b>{original_unique_count}種類</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
                 )
                 
