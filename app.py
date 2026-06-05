@@ -101,7 +101,7 @@ with right_col:
                 df_pie = processed_df[target_column].value_counts().reset_index()
                 df_pie.columns = [target_column, '件数']
                 
-                # 【確実化】データを件数の多い順に明示的に並び替える
+                # データを件数の多い順に明示的に並び替え
                 df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
                 # Plotlyで円グラフを作成
@@ -113,12 +113,11 @@ with right_col:
                     hole=0.3
                 )
                 
-                # 12時の位置（rotation=90）から時計回り（direction='clockwise'）に配置し、
-                # 自動ソートをオフ（sort=False）にすることで、上で並び替えた「大きい順」をそのまま強制適用します
+                # 【修正】rotation=0 にすることで、時計回りの時にぴったり12時（真上）スタートになります
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
-                    rotation=90
+                    rotation=0
                 )
                 
                 # グラフのレイアウト調整
@@ -144,4 +143,3 @@ with right_col:
     else:
         # 初期状態の表示
         st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
-    
