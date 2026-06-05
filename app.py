@@ -98,9 +98,10 @@ with right_col:
                 st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
             with btn_col:
-                # 【新規修正】凡例の選択状態を一発でリセットする本物のボタン
+                # 【修正】リセット時にキャッシュ（一時保存データ）を完全に破壊して初期化する
                 if st.button("🔄 選択をリセット（全表示）", use_container_width=True):
-                    st.rerun() # 画面を再描画して初期状態に戻す
+                    st.cache_data.clear() # キャッシュを完全にクリア
+                    st.rerun()            # 真っ新な状態で再描画
             
             target_column = '請求先名' 
             
@@ -150,4 +151,4 @@ with right_col:
             st.warning("データの読み込みに失敗したため、表示できません。")
     else:
         # 初期状態の表示
-        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")        
+        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")       
