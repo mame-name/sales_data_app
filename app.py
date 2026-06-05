@@ -113,7 +113,7 @@ with right_col:
                     hole=0.3
                 )
                 
-                # 【修正】rotation=0 にすることで、時計回りの時にぴったり12時（真上）スタートになります
+                # rotation=0 にすることで時計回りの時にぴったり12時（真上）スタート
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -123,8 +123,15 @@ with right_col:
                 # グラフのレイアウト調整
                 fig.update_layout(margin=dict(t=40, b=10, l=10, r=10), height=400)
                 
-                # 画面に描画
-                st.plotly_chart(fig, use_container_width=True)
+                # 【修正】グラフの右上ツールバーに「お家（リセット）」ボタンを表示させる設定
+                # 'resetScale' を指定することで、凡例クリックでの非表示状態などを一発で全表示に戻せます
+                plotly_config = {
+                    'modeBarButtonsToAdd': ['resetScale'], # ホーム（リセット）ボタンを強制追加
+                    'displayModeBar': True                # ツールバーを常時表示
+                }
+                
+                # 画面に描画（設定を適用）
+                st.plotly_chart(fig, use_container_width=True, config=plotly_config)
             else:
                 st.warning(f"⚠️ アップロードされたデータに『{target_column}』という列名が見つからないため、円グラフを描画できません。")
                 st.caption(f"実際の列名一覧: {list(processed_df.columns)}")
@@ -143,3 +150,4 @@ with right_col:
     else:
         # 初期状態の表示
         st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
+        
