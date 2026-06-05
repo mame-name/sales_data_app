@@ -20,15 +20,15 @@ st.markdown(
     @media (min-width: 992px) {
         div[data-testid="stColumn"]:nth-of-type(1) {
             position: fixed;
-            width: 22% !important; /* 幅を28%から22%へスリム化 */
+            width: 22% !important; 
             max-height: 85vh;
             overflow-y: auto;
             padding-right: 15px;
         }
         
         div[data-testid="stColumn"]:nth-of-type(2) {
-            margin-left: 25% !important; /* 左が狭まった分、左マージンを詰める */
-            width: 73% !important;        /* 右画面の横幅を大きく拡大 */
+            margin-left: 25% !important; 
+            width: 73% !important;        
         }
     }
     </style>
@@ -67,7 +67,7 @@ def load_and_process_data(file):
 # ==========================================
 # 🧱 左右分割レイアウトの作成
 # ==========================================
-left_col, right_col = st.columns([1, 3]) # 比率を [1, 2] から [1, 3] に変更して右をより広く
+left_col, right_col = st.columns([1, 3]) 
 
 # グローバルでデータを保持する変数の初期化
 processed_df = None
@@ -125,7 +125,7 @@ with left_col:
 
 
 # ------------------------------------------
-# 👉 右画面：広くなったメイン表示（円グラフのサイズを完全固定！）
+# 👉 右画面：広くなったメイン表示（凡例右側 ＆ 円サイズ絶対固定）
 # ------------------------------------------
 with right_col:
     if not uploaded_file:
@@ -187,7 +187,9 @@ with right_col:
                 
                 font_size = 14
                 
-                # 【修正】固定サイズを維持するため、円の描画ドメイン(x, yの範囲)を明示的に指定
+                # 【修正】
+                # 円グラフの左右描画位置を「全体の左側（0.0〜0.55の間）」に厳密に固定。
+                # これにより右側の凡例テキストがどんな長さになっても、円自体は常に同じサイズ・同じ位置を保ちます。
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -199,23 +201,29 @@ with right_col:
                     textfont=dict(size=font_size),       
                     insidetextfont=dict(size=font_size), 
                     hoverinfo='label+value+percent',
-                    domain=dict(x=[0.15, 0.85], y=[0.05, 0.95]) # ← 円の表示スペースを確実に固定
+                    domain=dict(x=[0.0, 0.55], y=[0.0, 1.0]) # ← 円のエリアを左半分に完全ロック！
                 )
                 
-                # 【修正】凡例の位置を右側から「下側（bottom）」へ移動。
-                # これにより、右側の文字数の長さに引っ張られて円が縮む現象を完全にシャットアウトします。
+                # 【修正】凡例を右側(Vertical)へ戻しました。
+                # 円グラフの中心も左側のエリアのセンター（x=0.275）へずらすことで、文字と真ん中の数字を完璧に一致させています。
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
-                    height=580, # 凡例を下に入れたので、縦のスペースを少し拡張
+                    height=500, 
                     showlegend=True,
                     legend=dict(
-                        orientation="h",     # 凡例を横並び(Horizontal)にする
-                        yanchor="top",
-                        y=-0.05,             # グラフの下側に配置
-                        xanchor="center",
-                        x=0.5
+                        orientation="v",      # 縦並び（右側配置）
+                        yanchor="middle",
+                        y=0.5,
+                        xanchor="left",
+                        x=0.62                # 円グラフと被らない右側の適切な位置に配置
                     ),
-                    annotations=[dict(text=f'{center_label}<br><b>{original_unique_count}種類</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
+                    annotations=[dict(
+                        text=f'{center_label}<br><b>{original_unique_count}種類</b>', 
+                        x=0.275,              # ← domainのx[0.0, 0.55]のちょうど真ん中
+                        y=0.5, 
+                        font_size=14, 
+                        showarrow=False
+                    )]
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
