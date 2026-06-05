@@ -104,12 +104,10 @@ with left_col:
 # 👉 右画面：メイン表示エリア（グラフ ＆ テーブルを配置し、独立スクロール）
 # ------------------------------------------
 
-with right:
+with right_col:
     st.markdown("<h1 style='text-align: center;'>🤖 営業データ分析システム 🤖</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray;'>実績データを読み込み、自動で整形・可視化を行います</p>", unsafe_allow_html=True)
     st.divider()
-
-with right_col:
     if uploaded_file:
         if processed_df is not None:
             # 1. グラフ配置エリア（最上部）
