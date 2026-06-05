@@ -94,12 +94,11 @@ with right_col:
             # 1. グラフ配置エリア（最上部）
             st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
-            # 【新規追加】顧客名毎の円グラフ描画ロジック
-            # ※もしExcelの実際の列名が「顧客名」ではない場合、ここの文字列を書き換えてください。
-            target_column = '顧客名' 
+            # 【修正】実際のExcelの列名「得意先名」をターゲットに設定
+            target_column = '得意先名' 
             
             if target_column in processed_df.columns:
-                # 顧客名ごとの件数を集計してデータフレーム化
+                # 得意先名ごとの件数を集計してデータフレーム化
                 df_pie = processed_df[target_column].value_counts().reset_index()
                 df_pie.columns = [target_column, '件数']
                 
@@ -108,18 +107,18 @@ with right_col:
                     df_pie, 
                     names=target_column, 
                     values='件数', 
-                    title='顧客名毎のデータ構成比',
-                    hole=0.3 # ドーナツグラフ風にして少しスタイリッシュに
+                    title='得意先名毎のデータ構成比',
+                    hole=0.3 # ドーナツグラフ風
                 )
                 
-                # グラフのレイアウト調整（文字被り防止など）
+                # グラフのレイアウト調整
                 fig.update_layout(margin=dict(t=40, b=10, l=10, r=10), height=400)
                 
                 # 画面に描画
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.warning(f"⚠️ アップロードされたデータに『{target_column}』という列名が見つからないため、円グラフを描画できません。実際の列名に合わせてコード内の文字を調整してください。")
-                st.caption(f"現在の列名一覧: {list(processed_df.columns)}")
+                st.warning(f"⚠️ アップロードされたデータに『{target_column}』という列名が見つからないため、円グラフを描画できません。")
+                st.caption(f"実際の列名一覧: {list(processed_df.columns)}")
             
             st.divider()
             
