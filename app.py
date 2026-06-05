@@ -29,7 +29,7 @@ def load_and_process_data(file):
         df_raw = pd.read_excel(file, sheet_name=target_sheet)
         
         # 【クレンジング】データフレーム全体から「【伝票計】」という文字が含まれる行を完全に除外
-        df_raw = df_raw[~df_raw.astype(str).apply(lambda x: x.str.contains('【伝票計】')).any(axis=1)]
+        df_raw = df_raw[~df_raw.astype(str).apply(lambda x: x.str.contains('【')).any(axis=1)]
         
         # すべて空の行を削除
         df_raw = df_raw.dropna(how='all').reset_index(drop=True)
