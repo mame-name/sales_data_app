@@ -1,1 +1,1 @@
-# -sales_data_app
+# sales_data_app
