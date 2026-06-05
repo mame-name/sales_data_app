@@ -91,17 +91,8 @@ with left_col:
 with right_col:
     if uploaded_file:
         if processed_df is not None:
-            # 横並びのレイアウトを作って、タイトルの横にボタンを配置
-            title_col, btn_col = st.columns([3, 1])
-            
-            with title_col:
-                st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
-            
-            with btn_col:
-                # 【修正】リセット時にキャッシュ（一時保存データ）を完全に破壊して初期化する
-                if st.button("🔄 選択をリセット（全表示）", use_container_width=True):
-                    st.cache_data.clear() # キャッシュを完全にクリア
-                    st.rerun()            # 真っ新な状態で再描画
+            # 1. グラフ配置エリア（最上部）
+            st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
             
             target_column = '請求先名' 
             
@@ -151,4 +142,4 @@ with right_col:
             st.warning("データの読み込みに失敗したため、表示できません。")
     else:
         # 初期状態の表示
-        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")       
+        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")      
