@@ -18,8 +18,15 @@ st.divider()
 def load_and_process_data(file):
     """アップロードされたファイルから特定のインデックス列を抽出して整形"""
     try:
+        # Excelファイルの全シート名を取得して安全確認
+        xl = pd.ExcelFile(file)
+        sheet_names = xl.sheet_names
+        
+        # 'Sheet1' があればそれを使い、無ければ1番最初のシートを自動選択する安全仕様
+        target_sheet = 'Sheet1' if 'Sheet1' in sheet_names else sheet_names[0]
+        
         # 1. 指定されたシートから全列を読み込み
-        df_raw = pd.read_excel(file, sheet_name='実績一覧', dtype={2: str})
+        df_raw = pd.read_excel(file, sheet_name=target_sheet, dtype={2: str})
         
         # 【クレンジング】データフレーム全体から「【伝票計】」という文字が含まれる行を完全に除外
         df_raw = df_raw[~df_raw.astype(str).apply(lambda x: x.str.contains('【伝票計】')).any(axis=1)]
@@ -48,8 +55,15 @@ def load_and_process_data(file):
             
         # 最新順（逆順）にしてインデックスを振り直す
         return df_sub[::-1].reset_index(drop=True)
+        
+    except ModuleNotFoundError as e:
+        st.error("🚨 必須ライブラリが不足しています。ターミナルで `pip install openpyxl` を実行してください。")
+        return None
     except Exception as e:
-        st.error(f"データ処理エラー: {e}")
+        if "openpyxl" in str(e):
+            st.error("🚨 Excelの読み込みにライブラリが必要です。ターミナルで `pip install openpyxl` を実行してください。")
+        else:
+            st.error(f"データ処理エラー: {e}")
         return None
 
 
@@ -91,9 +105,13 @@ with right_col:
         # 🎰 演出用のプレースホルダー
         display_placeholder = st.empty()
         
-        if not predict_button:
+        if processed_df is None:
+            # エラー発生時は処理をストップ
+            st.warning("データの読み込みに失敗したため、処理を中断しました。")
+            
+        elif not predict_button:
             display_placeholder.markdown("<h2 style='text-align: center; margin-top: 50px;'>📊 データ読込完了</h2>", unsafe_allow_html=True)
-            st.success(f" 読み込み成功: {len(processed_df) if processed_df is not None else 0} 件のデータを検出しました。")
+            st.success(f" 読み込み成功: {len(processed_df)} 件のデータを検出しました（【伝票計】は自動除外済み）。")
             st.info("👈 左側の「分析・シミュレーションを実行」ボタンを押すと、このデータを元にシミュレーションを開始します。")
         
         else:
@@ -137,4 +155,4 @@ with right_col:
                 st.caption("※ここに抽出データをベースにした将来の予測値が反映されます。")
                 
     else:
-        st.info("👈 まずは左側のパネルから、指定のインデックスが含まれる「実績一覧」シートを持ったファイルをアップロードしてください。")
+        st.info("👈 まずは左側のパネルから、指定のインデックスが含まれるファイル（Sheet1）をアップロードしてください。")
