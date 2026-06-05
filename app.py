@@ -104,31 +104,42 @@ with right_col:
                 # データを件数の多い順に明示的に並び替え
                 df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
                 
-                # 【新規追加】割合（％）を計算して凡例用のラベルを作成
+                # 割合（％）を計算して凡例用のラベルを作成
                 total_count = df_pie['件数'].sum()
-                df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1) # 小数点第1位まで
-                
-                # 「請求先名 (〇〇.〇%)」という表示用の新しい列を作る
+                df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
                 df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
-                # Plotlyで円グラフを作成（namesに合体させた『凡例表示名』を指定）
+                # 【修正】タイトルを独立した行としてStreamlit側で表示（文字被り防止）
+                st.markdown("#### 📊 請求先名毎のデータ構成比（12時スタート・大きい順）")
+                
+                # Plotlyで円グラフを作成（title引数は空に設定）
                 fig = px.pie(
                     df_pie, 
                     names='凡例表示名', 
                     values='件数', 
-                    title='請求先名毎のデータ構成比（12時スタート・大きい順）',
-                    hole=0.3
+                    title='',
+                    hole=0.4 # 真ん中の空洞を少し広げて文字を入りやすく
                 )
                 
-                # rotation=0 で12時（真上）スタート
+                # 【修正】
+                # - textinfo='none' でグラフ内の数字や引き出し線を完全に非表示にしてスッキリ化
+                # - 真ん中の空洞部分に総請求先数を表示
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
-                    rotation=0
+                    rotation=0,
+                    textinfo='none',
+                    hoverinfo='label+value+percent', # マウスを乗せた時は詳細が出るように
+                    insidetextorientation='radial'
                 )
                 
-                # グラフのレイアウト調整
-                fig.update_layout(margin=dict(t=40, b=10, l=10, r=10), height=400)
+                # グラフのレイアウト調整と真ん中の文字配置
+                unique_clients = len(df_pie)
+                fig.update_layout(
+                    margin=dict(t=10, b=10, l=10, r=10), 
+                    height=450,
+                    annotations=[dict(text=f'請求先数<br><b>{unique_clients}件</b>', x=0.5, y=0.5, font_size=16, showarrow=False)]
+                )
                 
                 # 画面に描画
                 st.plotly_chart(fig, use_container_width=True)
