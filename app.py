@@ -7,17 +7,12 @@ from datetime import datetime
 st.set_page_config(layout="wide", page_title="営業データ分析システム")
 
 # ==========================================
-# 🎨 レイアウト微調整：左メニューをよりスリムに固定
+# 🎨 レイアウト微調整：左メニューをスリムに固定
 # ==========================================
 st.markdown(
     """
     <style>
-    .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 1.5rem;
-    }
-    
-    /* PC表示(横幅992px以上)の時、左画面を22%に絞り、右画面を75%に広げて有効活用 */
+    .block-container { padding-top: 1.5rem; padding-bottom: 1.5rem; }
     @media (min-width: 992px) {
         div[data-testid="stColumn"]:nth-of-type(1) {
             position: fixed;
@@ -26,7 +21,6 @@ st.markdown(
             overflow-y: auto;
             padding-right: 15px;
         }
-        
         div[data-testid="stColumn"]:nth-of-type(2) {
             margin-left: 25% !important; 
             width: 73% !important;        
@@ -42,247 +36,111 @@ st.markdown(
 # ==========================================
 @st.cache_data
 def load_and_process_data(file):
-    """アップロードされたファイルをそのまま全列読み込み、【を含む行を除外、売上日を日付型に"""
     try:
         xl = pd.ExcelFile(file)
-        sheet_names = xl.sheet_names
-        target_sheet = 'Sheet1' if 'Sheet1' in sheet_names else sheet_names[0]
-        
-        df_raw = pd.read_excel(file, sheet_name=target_sheet)
-        df_raw = df_raw[~df_raw.astype(str).apply(lambda x: x.str.contains('【')).any(axis=1)]
-        df_raw = df_raw.dropna(how='all').reset_index(drop=True)
-        
-        df_processed = df_raw[::-1].reset_index(drop=True)
-        
-        # 売上日列の自動日付変換ロジック
-        if '売上日' in df_processed.columns:
-            df_processed['売上日'] = pd.to_datetime(df_processed['売上日'], errors='coerce')
-            df_processed = df_processed.dropna(subset=['売上日']) 
-            
-        return df_processed
-        
-    except ModuleNotFoundError as e:
-        st.error("🚨 必須ライブラリが不足しています。ターミナルで `pip install openpyxl` を実行してください。")
-        return None
+        target_sheet = 'Sheet1' if 'Sheet1' in xl.sheet_names else xl.sheet_names[0]
+        df = pd.read_excel(file, sheet_name=target_sheet)
+        df = df[~df.astype(str).apply(lambda x: x.str.contains('【')).any(axis=1)]
+        df = df.dropna(how='all').reset_index(drop=True)
+        df = df[::-1].reset_index(drop=True)
+        if '売上日' in df.columns:
+            df['売上日'] = pd.to_datetime(df['売上日'], errors='coerce')
+            df = df.dropna(subset=['売上日'])
+        return df
     except Exception as e:
-        if "openpyxl" in str(e):
-            st.error("🚨 Excelの読み込みにライブラリが必要です。ターミナルで `pip install openpyxl` を実行してください。")
-        else:
-            st.error(f"データ処理エラー: {e}")
+        st.error(f"データ読込エラー: {e}")
         return None
-
 
 # ==========================================
-# 🧱 左右分割レイアウトの作成
+# 🧱 メインロジック
 # ==========================================
 left_col, right_col = st.columns([1, 3]) 
 
-# グローバルでデータを保持する変数の初期化
+# 初期状態
 processed_df = None
 filtered_df = None
+start_date = datetime(2026, 1, 1).date()
+end_date = datetime(2026, 12, 31).date()
 
-staff_options = ["全選択"]
-client_options = ["全選択"]
-selected_staff = "全選択"
-selected_client = "全選択"
-is_disabled = True
-
-# ------------------------------------------
-# 👈 左画面：日付入力ボックス ＆ 条件選択
-# ------------------------------------------
 with left_col:
     st.subheader("📁 データ読込")
-    uploaded_file = st.file_uploader("実績XLSMファイルを選択してください", type=['xlsm', 'xlsx'], label_visibility="collapsed")
+    uploaded_file = st.file_uploader("実績ファイルを選択", type=['xlsm', 'xlsx'], label_visibility="collapsed")
     
     st.markdown("---")
     st.subheader("⚙️ 条件選択")
     
-    # 日付入力用のデフォルト初期値
-    start_date = datetime(2026, 1, 1).date()
-    end_date = datetime(2026, 12, 31).date()
-    
     if uploaded_file:
-        with st.spinner("🔄 読込中..."):
-            processed_df = load_and_process_data(uploaded_file)
+        processed_df = load_and_process_data(uploaded_file)
+        if processed_df is not None:
+            start_date = processed_df['売上日'].min().date()
+            end_date = processed_df['売上日'].max().date()
             
-        if processed_df is not None and not processed_df.empty:
-            is_disabled = False
+            # --- 日付入力（開始・終了） ---
+            st.caption("📅 分析期間")
+            with st.container(border=True):
+                selected_start = st.date_input("開始", value=start_date)
+                st.markdown("<div style='text-align: center; font-weight: bold;'>～</div>", unsafe_allow_html=True)
+                selected_end = st.date_input("終了", value=end_date)
             
-            # 営業担当名リストの作成
-            if '営業担当名' in processed_df.columns:
-                unique_staff = processed_df['営業担当名'].dropna().unique().tolist()
-                staff_options = ["全選択"] + sorted([str(s) for s in unique_staff])
-                
-            # データ内の実際の売上日から初期値（最小値・最大値）を自動取得
-            if '売上日' in processed_df.columns:
-                start_date = processed_df['売上日'].min().date()
-                end_date = processed_df['売上日'].max().date()
-    
-    # 【修正】「開始」「終了」への文言変更 ＆ 途切れ対策として縦並びに変更
-    selected_start = st.date_input("期間（開始）", value=start_date, disabled=is_disabled)
-    selected_end = st.date_input("期間（終了）", value=end_date, disabled=is_disabled)
-    
-    # 日付の前後関係が逆転した場合の安全対策
-    if selected_start > selected_end:
-        st.error("🚨 『開始』の日付が『終了』より後になっています。")
-    
-    # 2. 営業担当名プルダウン
-    selected_staff = st.selectbox("営業担当名", staff_options, disabled=is_disabled)
-    
-    # 【連動処理】入力された日付 ＆ 営業担当名で1次フィルタリング
-    if processed_df is not None:
-        filtered_df = processed_df.copy()
-        
-        # 入力期間での絞り込み
-        if '売上日' in filtered_df.columns:
-            filtered_df = filtered_df[
-                (filtered_df['売上日'].dt.date >= selected_start) & 
-                (filtered_df['売上日'].dt.date <= selected_end)
+            # フィルター処理
+            filtered_df = processed_df[
+                (processed_df['売上日'].dt.date >= selected_start) & 
+                (processed_df['売上日'].dt.date <= selected_end)
             ]
             
-        # 営業担当での絞り込み
-        if selected_staff != "全選択":
-            filtered_df = filtered_df[filtered_df['営業担当名'].astype(str) == selected_staff]
-        
-        # 1次フィルター後のデータから、2つ目の「請求先名」プルダウンの選択肢を作成
-        if '請求先名' in filtered_df.columns:
-            unique_clients = filtered_df['請求先名'].dropna().unique().tolist()
-            client_options = ["全選択"] + sorted([str(c) for c in unique_clients])
+            # 営業担当選択
+            unique_staff = ["全選択"] + sorted(processed_df['営業担当名'].dropna().unique().astype(str).tolist())
+            selected_staff = st.selectbox("営業担当名", unique_staff)
+            if selected_staff != "全選択":
+                filtered_df = filtered_df[filtered_df['営業担当名'].astype(str) == selected_staff]
             
-    # 3. 請求先名プルダウン
-    selected_client = st.selectbox("請求先名", client_options, disabled=is_disabled)
-    
-    # 請求先名での最終絞り込み
-    if filtered_df is not None and selected_client != "全選択":
-        filtered_df = filtered_df[filtered_df['請求先名'].astype(str) == selected_client]
+            # 請求先選択
+            unique_clients = ["全選択"] + sorted(filtered_df['請求先名'].dropna().unique().astype(str).tolist())
+            selected_client = st.selectbox("請求先名", unique_clients)
+            if selected_client != "全選択":
+                filtered_df = filtered_df[filtered_df['請求先名'].astype(str) == selected_client]
 
-    # データサマリー
-    if processed_df is not None and filtered_df is not None:
-        st.markdown("---")
-        st.subheader("📊 サマリー")
-        total_rows = len(processed_df)
-        match_rows = len(filtered_df)
-        st.metric(label="ファイル内全データ数", value=f"{total_rows} 件")
-        st.metric(label="現在の該当件数", value=f"{match_rows} 件")
+            st.markdown("---")
+            st.metric(label="現在の該当件数", value=f"{len(filtered_df)} 件")
+    else:
+        st.info("👈 ファイルをアップロードしてください")
 
-
-# ------------------------------------------
-# 👉 右画面：メイン表示エリア
-# ------------------------------------------
 with right_col:
-    if not uploaded_file:
-        main_title = "🤖 営業データ分析システム 🤖"
-        sub_title = "実績データを読み込み、自動で整形・可視化を行います"
-    else:
-        staff_part = "全営業担当" if selected_staff == "全選択" else f"担当: {selected_staff}"
-        if selected_client == "全選択":
-            main_title = f"📈 {staff_part} 請求先別データ構成比"
-            sub_title = f"分析期間: {selected_start.strftime('%Y/%m/%d')} ～ {selected_end.strftime('%Y/%m/%d')}"
-            target_column = '請求先名'
-            title_text = "📊 請求先名毎のデータ構成比（上位15社＋その他）"
-            center_label = "総請求先数"
+    if uploaded_file and processed_df is not None:
+        # タイトル生成ロジック
+        staff_txt = "全営業担当" if 'selected_staff' not in locals() or selected_staff == "全選択" else f"担当: {selected_staff}"
+        if 'selected_client' not in locals() or selected_client == "全選択":
+            main_title = f"📈 {staff_txt} 請求先別データ構成比"
+            target_col, title_txt = '請求先名', "📊 請求先名毎の構成比（上位15社＋その他）"
         else:
-            main_title = f"🔍 {staff_part} 【{selected_client}】 品名別内訳"
-            sub_title = f"分析期間: {selected_start.strftime('%Y/%m/%d')} ～ {selected_end.strftime('%Y/%m/%d')}"
-            target_column = '品名'
-            title_text = f"📊 品名毎のデータ構成比（上位15品＋その他）"
-            center_label = "総品名数"
+            main_title = f"🔍 {staff_txt} 【{selected_client}】 品名別内訳"
+            target_col, title_txt = '品名', "📊 品名毎の構成比（上位15品＋その他）"
 
-    st.markdown(f"<h1 style='text-align: center; font-size: 26px;'>{main_title}</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center; color: gray; font-size: 14px;'>{sub_title}</p>", unsafe_allow_html=True) 
-    st.divider()
+        st.markdown(f"<h1 style='text-align: center; font-size: 26px;'>{main_title}</h1>", unsafe_allow_html=True)
+        st.divider()
 
-    if uploaded_file:
-        if processed_df is not None and filtered_df is not None:
+        if not filtered_df.empty:
+            # グラフ生成
+            df_pie = filtered_df[target_col].value_counts().reset_index()
+            df_pie.columns = [target_col, '件数']
+            # 上位15以外を「その他」へ
+            if len(df_pie) > 15:
+                df_top = df_pie.head(15).copy()
+                df_top = pd.concat([df_top, pd.DataFrame({target_col: ['その他'], '件数': [df_pie.iloc[15:]['件数'].sum()]})])
+                df_pie = df_top
             
-            st.markdown("<h3 style='margin-top: 0px;'>📈 グラフ配置エリア</h3>", unsafe_allow_html=True)
+            fig = px.pie(df_pie, names=target_col, values='件数', hole=0.4)
+            fig.update_traces(domain=dict(x=[0.0, 0.55], y=[0.0, 1.0]))
+            fig.update_layout(legend=dict(orientation="v", y=0.5, x=0.6))
             
-            if target_column in filtered_df.columns:
-                original_unique_count = filtered_df[target_column].nunique()
-                
-                df_pie = filtered_df[target_column].value_counts().reset_index()
-                df_pie.columns = [target_column, '件数']
-                df_pie = df_pie.sort_values(by='件数', ascending=False).reset_index(drop=True)
-                
-                top_n = 15
-                if len(df_pie) > top_n:
-                    df_top = df_pie.head(top_n).copy()
-                    other_count = df_pie.iloc[top_n:]['件数'].sum()
-                    df_other = pd.DataFrame([{target_column: 'custom_other', '件数': other_count}])
-                    df_pie = pd.concat([df_top, df_other], ignore_index=True)
-                
-                total_count = df_pie['件数'].sum()
-                if total_count > 0:
-                    df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
-                else:
-                    df_pie['割合'] = 0
-                
-                df_pie[target_column] = df_pie[target_column].replace('custom_other', 'その他')
-                df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
-                
-                st.markdown(f"#### {title_text}")
-                
-                if total_count > 0:
-                    fig = px.pie(
-                        df_pie, 
-                        names='凡例表示名', 
-                        values='件数', 
-                        title='',
-                        hole=0.4
-                    )
-                    
-                    font_size = 14
-                    fig.update_traces(
-                        sort=False, 
-                        direction='clockwise', 
-                        rotation=0,
-                        textinfo='percent',
-                        texttemplate='%{percent:.1%}', 
-                        textposition='inside',
-                        insidetextorientation='horizontal',
-                        textfont=dict(size=font_size),       
-                        insidetextfont=dict(size=font_size), 
-                        hoverinfo='label+value+percent',
-                        domain=dict(x=[0.0, 0.55], y=[0.0, 1.0])
-                    )
-                    
-                    fig.update_layout(
-                        margin=dict(t=10, b=10, l=10, r=10), 
-                        height=500, 
-                        showlegend=True,
-                        legend=dict(
-                            orientation="v",
-                            yanchor="middle",
-                            y=0.5,
-                            xanchor="left",
-                            x=0.62
-                        ),
-                        annotations=[dict(
-                            text=f'{center_label}<br><b>{original_unique_count}種類</b>', 
-                            x=0.275, 
-                            y=0.5, 
-                            font_size=14, 
-                            showarrow=False
-                        )]
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("指定された期間・条件に一致する売上データがありません。期間を変更してください。")
-            else:
-                st.warning(f"⚠️ 集計対象の列『{target_column}』がデータ内に見つからないためグラフを描画できません。")
+            st.markdown(f"#### {title_txt}")
+            st.plotly_chart(fig, use_container_width=True)
             
-            st.divider()
-            
-            # 2. データテーブル表示エリア
-            st.markdown("## 📋 実績データ一覧（フィルター後）")
-            if not filtered_df.empty:
-                df_display = filtered_df.copy()
-                df_display['売上日'] = df_display['売上日'].dt.strftime('%Y/%m/%d')
-                st.dataframe(df_display, use_container_width=True, height=500)
-            else:
-                st.warning("選択された条件に一致するデータがありません。")
-            
+            st.markdown("## 📋 実績データ一覧")
+            display_df = filtered_df.copy()
+            display_df['売上日'] = display_df['売上日'].dt.strftime('%Y/%m/%d')
+            st.dataframe(display_df, use_container_width=True)
         else:
-            st.warning("データの読み込みに失敗したため、表示できません。")
+            st.warning("該当データがありません")
     else:
-        st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
+        st.info("👈 左側のパネルからデータを読み込んでください")
