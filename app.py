@@ -55,7 +55,7 @@ left_col, right_col = st.columns([1, 2])
 processed_df = None
 
 # ------------------------------------------
-# 👈 左画面：データ入力 ＆ ダッシュボード常時表示
+# 👈 左画面：データ入力 ＆ サマリー常時表示
 # ------------------------------------------
 with left_col:
     st.subheader("📁 データソース読込")
@@ -69,37 +69,39 @@ with left_col:
     target_category = st.selectbox("製品カテゴリー", ["すべて", "カテゴリーA", "カテゴリーB"], disabled=True)
     analysis_range = st.slider("分析期間 (ヶ月)", min_value=1, max_value=12, value=3, disabled=True)
     
-    # ファイルがアップロードされている場合、左側にダッシュボードを常時表示
+    # ファイルがアップロードされている場合、左側にサマリー（メーター）を常時表示
     if uploaded_file:
         with st.spinner("🔄 実績データを読み込み中..."):
             processed_df = load_and_process_data(uploaded_file)
             
         if processed_df is not None:
             st.markdown("---")
-            st.subheader("📊 ダッシュボード")
+            st.subheader("📊 データサマリー")
             
-            # メーター（サマリー）の配置
+            # メーターの配置（グラフエリアはここには置かない）
             total_rows = len(processed_df)
             st.metric(label="解析データ総数", value=f"{total_rows} 件")
             st.metric(label="処理ステータス", value="正常 (【 行除外済)")
-            
-            st.markdown("#### 📈 グラフ配置エリア")
-            st.caption("※ここに抽出データから計算された各種チャートが常時表示されます。")
 
 
 # ------------------------------------------
-# 👉 右画面：メイン表示エリア（テーブルを即時表示）
+# 👉 右画面：メイン表示エリア（テーブル ＆ グラフ配置）
 # ------------------------------------------
 with right_col:
     if uploaded_file:
         if processed_df is not None:
+            # 1. データテーブル表示エリア
             st.markdown("<h2 style='color: #FF4B4B; margin-top: 0px;'>📋 実績データ一覧（全列表示）</h2>", unsafe_allow_html=True)
-            
             if not processed_df.empty:
-                # ファイルがアップされた時点で、ボタンなしで即座にデータテーブルを表示
-                st.dataframe(processed_df, use_container_width=True, height=650)
+                st.dataframe(processed_df, use_container_width=True, height=400) # 高さを少し調整してグラフを見やすく
             else:
                 st.warning("表示できるデータがありません。")
+            
+            # 2. グラフ配置エリア（右画面の下部にキープ）
+            st.divider()
+            st.markdown("### 📈 グラフ配置エリア")
+            st.caption("※ここに抽出データから計算された各種チャートが描画されます。")
+            
         else:
             st.warning("データの読み込みに失敗したため、表示できません。")
     else:
