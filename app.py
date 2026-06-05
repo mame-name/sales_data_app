@@ -146,6 +146,7 @@ with right_col:
                     hole=0.4
                 )
                 
+                # 【修正】insidetextorientation='horizontal' を追加して文字を平行に固定
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -154,10 +155,10 @@ with right_col:
                     texttemplate='%{customdata[0]}<br>%{percent:.1%}',
                     customdata=df_pie[[target_column]].values,
                     textposition='inside',
+                    insidetextorientation='horizontal', # ← これですべての文字がまっすぐ平行になります
                     hoverinfo='label+value+percent'
                 )
                 
-                # 【修正】uniformtext_minmode を uniformtext_mode に修正しました
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
                     height=500, 
@@ -184,5 +185,6 @@ with right_col:
         else:
             st.warning("データの読み込みに失敗したため、表示できません。")
     else:
+        # 初期状態の表示
         st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
         
