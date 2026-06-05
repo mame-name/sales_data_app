@@ -146,7 +146,9 @@ with right_col:
                     hole=0.4
                 )
                 
-                # 【修正】insidetextorientation='horizontal' を追加して文字を平行に固定
+                # 【修正】
+                # - insidetextfont=dict(size=10) で文字サイズを微調整して入りやすく
+                # - textposition='inside' で内側に固定しつつ、はみ出し表示を許可
                 fig.update_traces(
                     sort=False, 
                     direction='clockwise', 
@@ -155,16 +157,17 @@ with right_col:
                     texttemplate='%{customdata[0]}<br>%{percent:.1%}',
                     customdata=df_pie[[target_column]].values,
                     textposition='inside',
-                    insidetextorientation='horizontal', # ← これですべての文字がまっすぐ平行になります
+                    insidetextorientation='horizontal',
+                    insidetextfont=dict(size=10), # 12pxから少しだけ小さくしてフィット感をアップ
                     hoverinfo='label+value+percent'
                 )
                 
+                # 【修正】uniformtext_mode=False にすることで自動非表示を完全にオフ
                 fig.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10), 
                     height=500, 
                     showlegend=True,
-                    uniformtext_mode='hide', 
-                    uniformtext_minsize=9,
+                    uniformtext_mode=False, 
                     annotations=[dict(text=f'総請求先数<br><b>{original_unique_count}社</b>', x=0.5, y=0.5, font_size=14, showarrow=False)]
                 )
                 
@@ -187,4 +190,3 @@ with right_col:
     else:
         # 初期状態の表示
         st.info("👈 まずは左側のパネルからファイル（Sheet1）をアップロードしてください。")
-        
