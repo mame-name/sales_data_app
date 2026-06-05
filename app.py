@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
 # ページ設定（ワイドモードで左右分割を活かす）
 st.set_page_config(layout="wide", page_title="営業データ分析システム")
@@ -41,7 +42,7 @@ st.markdown(
 # ==========================================
 @st.cache_data
 def load_and_process_data(file):
-    """アップロードされたファイルをそのまま全列読み込み、【を含む行を除外する"""
+    """アップロードされたファイルをそのまま全列読み込み、【を含む行を除外、売上日を日付型に"""
     try:
         xl = pd.ExcelFile(file)
         sheet_names = xl.sheet_names
@@ -51,7 +52,14 @@ def load_and_process_data(file):
         df_raw = df_raw[~df_raw.astype(str).apply(lambda x: x.str.contains('【')).any(axis=1)]
         df_raw = df_raw.dropna(how='all').reset_index(drop=True)
         
-        return df_raw[::-1].reset_index(drop=True)
+        df_processed = df_raw[::-1].reset_index(drop=True)
+        
+        # 売上日列の自動日付変換ロジック
+        if '売上日' in df_processed.columns:
+            df_processed['売上日'] = pd.to_datetime(df_processed['売上日'], errors='coerce')
+            df_processed = df_processed.dropna(subset=['売上日']) 
+            
+        return df_processed
         
     except ModuleNotFoundError as e:
         st.error("🚨 必須ライブラリが不足しています。ターミナルで `pip install openpyxl` を実行してください。")
@@ -80,7 +88,7 @@ selected_client = "全選択"
 is_disabled = True
 
 # ------------------------------------------
-# 👈 左画面：スリム化したデータ入力＆条件選択
+# 👈 左画面：日付入力ボックス（はじめ・おわり） ＆ 条件選択
 # ------------------------------------------
 with left_col:
     st.subheader("📁 データ読込")
@@ -89,43 +97,81 @@ with left_col:
     st.markdown("---")
     st.subheader("⚙️ 条件選択")
     
+    # 日付入力用のデフォルト初期値
+    start_date = datetime(2026, 1, 1).date()
+    end_date = datetime(2026, 12, 31).date()
+    
     if uploaded_file:
         with st.spinner("🔄 読込中..."):
             processed_df = load_and_process_data(uploaded_file)
             
-        if processed_df is not None:
+        if processed_df is not None and not processed_df.empty:
             is_disabled = False
+            
+            # 営業担当名リストの作成
             if '営業担当名' in processed_df.columns:
                 unique_staff = processed_df['営業担当名'].dropna().unique().tolist()
                 staff_options = ["全選択"] + sorted([str(s) for s in unique_staff])
+                
+            # データ内の実際の売上日から初期値（最小値・最大値）を自動取得
+            if '売上日' in processed_df.columns:
+                start_date = processed_df['売上日'].min().date()
+                end_date = processed_df['売上日'].max().date()
     
+    # 【修正】スライダーを廃止し、はじめとおわりの日付入力ボックスを個別に配置
+    st.caption("📅 売上期間")
+    col_date1, col_date2 = st.columns(2)
+    with col_date1:
+        selected_start = st.date_input("はじめ", value=start_date, disabled=is_disabled, label_visibility="visible")
+    with col_date2:
+        selected_end = st.date_input("おわり", value=end_date, disabled=is_disabled, label_visibility="visible")
+    
+    # 日付の前後関係が逆転した場合の安全対策
+    if selected_start > selected_end:
+        st.error("🚨 『はじめ』の日付が『おわり』より後になっています。")
+    
+    # 2. 営業担当名プルダウン
     selected_staff = st.selectbox("営業担当名", staff_options, disabled=is_disabled)
     
+    # 【連動処理】入力された日付 ＆ 営業担当名で1次フィルタリング
     if processed_df is not None:
         filtered_df = processed_df.copy()
+        
+        # 入力期間での絞り込み
+        if '売上日' in filtered_df.columns:
+            filtered_df = filtered_df[
+                (filtered_df['売上日'].dt.date >= selected_start) & 
+                (filtered_df['売上日'].dt.date <= selected_end)
+            ]
+            
+        # 営業担当での絞り込み
         if selected_staff != "全選択":
             filtered_df = filtered_df[filtered_df['営業担当名'].astype(str) == selected_staff]
         
+        # 1次フィルター後のデータから、2つ目の「請求先名」プルダウンの選択肢を作成
         if '請求先名' in filtered_df.columns:
             unique_clients = filtered_df['請求先名'].dropna().unique().tolist()
             client_options = ["全選択"] + sorted([str(c) for c in unique_clients])
             
+    # 3. 請求先名プルダウン
     selected_client = st.selectbox("請求先名", client_options, disabled=is_disabled)
     
+    # 請求先名での最終絞り込み
     if filtered_df is not None and selected_client != "全選択":
         filtered_df = filtered_df[filtered_df['請求先名'].astype(str) == selected_client]
 
+    # データサマリー
     if processed_df is not None and filtered_df is not None:
         st.markdown("---")
         st.subheader("📊 サマリー")
         total_rows = len(processed_df)
         match_rows = len(filtered_df)
-        st.metric(label="データ総数", value=f"{total_rows} 件")
-        st.metric(label="該当件数", value=f"{match_rows} 件")
+        st.metric(label="ファイル内全データ数", value=f"{total_rows} 件")
+        st.metric(label="現在の該当件数", value=f"{match_rows} 件")
 
 
 # ------------------------------------------
-# 👉 右画面：広くなったメイン表示（凡例右側 ＆ 円サイズ絶対固定）
+# 👉 右画面：メイン表示エリア
 # ------------------------------------------
 with right_col:
     if not uploaded_file:
@@ -135,13 +181,13 @@ with right_col:
         staff_part = "全営業担当" if selected_staff == "全選択" else f"担当: {selected_staff}"
         if selected_client == "全選択":
             main_title = f"📈 {staff_part} 請求先別データ構成比"
-            sub_title = "全体実績から上位15社の請求先シェアを分析しています"
+            sub_title = f"分析期間: {selected_start.strftime('%Y/%m/%d')} ～ {selected_end.strftime('%Y/%m/%d')}"
             target_column = '請求先名'
             title_text = "📊 請求先名毎のデータ構成比（上位15社＋その他）"
             center_label = "総請求先数"
         else:
             main_title = f"🔍 {staff_part} 【{selected_client}】 品名別内訳"
-            sub_title = f"選択された取引先（{selected_client}）が購入している製品群の構成比です"
+            sub_title = f"分析期間: {selected_start.strftime('%Y/%m/%d')} ～ {selected_end.strftime('%Y/%m/%d')}"
             target_column = '品名'
             title_text = f"📊 品名毎のデータ構成比（上位15品＋その他）"
             center_label = "総品名数"
@@ -170,63 +216,62 @@ with right_col:
                     df_pie = pd.concat([df_top, df_other], ignore_index=True)
                 
                 total_count = df_pie['件数'].sum()
-                df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
+                if total_count > 0:
+                    df_pie['割合'] = (df_pie['件数'] / total_count * 100).round(1)
+                else:
+                    df_pie['割合'] = 0
                 
                 df_pie[target_column] = df_pie[target_column].replace('custom_other', 'その他')
                 df_pie['凡例表示名'] = df_pie[target_column] + ' (' + df_pie['割合'].astype(str) + '%)'
                 
                 st.markdown(f"#### {title_text}")
                 
-                fig = px.pie(
-                    df_pie, 
-                    names='凡例表示名', 
-                    values='件数', 
-                    title='',
-                    hole=0.4
-                )
-                
-                font_size = 14
-                
-                # 【修正】
-                # 円グラフの左右描画位置を「全体の左側（0.0〜0.55の間）」に厳密に固定。
-                # これにより右側の凡例テキストがどんな長さになっても、円自体は常に同じサイズ・同じ位置を保ちます。
-                fig.update_traces(
-                    sort=False, 
-                    direction='clockwise', 
-                    rotation=0,
-                    textinfo='percent',
-                    texttemplate='%{percent:.1%}', 
-                    textposition='inside',
-                    insidetextorientation='horizontal',
-                    textfont=dict(size=font_size),       
-                    insidetextfont=dict(size=font_size), 
-                    hoverinfo='label+value+percent',
-                    domain=dict(x=[0.0, 0.55], y=[0.0, 1.0]) # ← 円のエリアを左半分に完全ロック！
-                )
-                
-                # 【修正】凡例を右側(Vertical)へ戻しました。
-                # 円グラフの中心も左側のエリアのセンター（x=0.275）へずらすことで、文字と真ん中の数字を完璧に一致させています。
-                fig.update_layout(
-                    margin=dict(t=10, b=10, l=10, r=10), 
-                    height=500, 
-                    showlegend=True,
-                    legend=dict(
-                        orientation="v",      # 縦並び（右側配置）
-                        yanchor="middle",
-                        y=0.5,
-                        xanchor="left",
-                        x=0.62                # 円グラフと被らない右側の適切な位置に配置
-                    ),
-                    annotations=[dict(
-                        text=f'{center_label}<br><b>{original_unique_count}種類</b>', 
-                        x=0.275,              # ← domainのx[0.0, 0.55]のちょうど真ん中
-                        y=0.5, 
-                        font_size=14, 
-                        showarrow=False
-                    )]
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
+                if total_count > 0:
+                    fig = px.pie(
+                        df_pie, 
+                        names='凡例表示名', 
+                        values='件_数' if '件_数' in df_pie.columns else '件数', 
+                        title='',
+                        hole=0.4
+                    )
+                    
+                    font_size = 14
+                    fig.update_traces(
+                        sort=False, 
+                        direction='clockwise', 
+                        rotation=0,
+                        textinfo='percent',
+                        texttemplate='%{percent:.1%}', 
+                        textposition='inside',
+                        insidetextorientation='horizontal',
+                        textfont=dict(size=font_size),       
+                        insidetextfont=dict(size=font_size), 
+                        hoverinfo='label+value+percent',
+                        domain=dict(x=[0.0, 0.55], y=[0.0, 1.0])
+                    )
+                    
+                    fig.update_layout(
+                        margin=dict(t=10, b=10, l=10, r=10), 
+                        height=500, 
+                        showlegend=True,
+                        legend=dict(
+                            orientation="v",
+                            yanchor="middle",
+                            y=0.5,
+                            xanchor="left",
+                            x=0.62
+                        ),
+                        annotations=[dict(
+                            text=f'{center_label}<br><b>{original_unique_count}種類</b>', 
+                            x=0.275, 
+                            y=0.5, 
+                            font_size=14, 
+                            showarrow=False
+                        )]
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("指定された期間・条件に一致する売上データがありません。期間を変更してください。")
             else:
                 st.warning(f"⚠️ 集計対象の列『{target_column}』がデータ内に見つからないためグラフを描画できません。")
             
@@ -235,7 +280,9 @@ with right_col:
             # 2. データテーブル表示エリア
             st.markdown("## 📋 実績データ一覧（フィルター後）")
             if not filtered_df.empty:
-                st.dataframe(filtered_df, use_container_width=True, height=500)
+                df_display = filtered_df.copy()
+                df_display['売上日'] = df_display['売上日'].dt.strftime('%Y/%m/%d')
+                st.dataframe(df_display, use_container_width=True, height=500)
             else:
                 st.warning("選択された条件に一致するデータがありません。")
             
